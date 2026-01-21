@@ -63,7 +63,7 @@ diffusion_sim/
 ### 依赖安装
 
 ```bash
-pip install networkx matplotlib pydantic
+pip install networkx matplotlib pydantic numpy jupyter
 ```
 
 ### 运行实验
@@ -80,7 +80,21 @@ cd experiments
 python tpb_numerical.py
 ```
 
+**TPB 模型验证（交互式）：**
+```bash
+jupyter notebook notebooks/tpb_validation_experiments.ipynb
+```
+
 这将生成可视化结果到 `data/outputs/`
+
+**Notebook 包含的实验：**
+1. 基础验证：TPB vs 基线模型
+2. TPB 权重参数对比（态度驱动 vs 社会规范驱动 vs 平衡）
+3. 摩擦参数影响分析
+4. 初始采纳者策略对比
+5. 网络结构影响实验
+6. 人群分类采纳时序分析
+7. 参数配置推荐
 
 ### 示例代码
 
