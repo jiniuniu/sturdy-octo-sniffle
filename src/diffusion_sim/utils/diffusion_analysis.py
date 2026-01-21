@@ -105,7 +105,7 @@ def analyze_diffusion_sequence(tracking_data: Dict) -> Dict:
         Dictionary with statistics for each category
     """
     agent_info = tracking_data['agent_info']
-    categories = ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard']
+    categories = ['early_adopters', 'early_majority', 'late_majority', 'laggards']
 
     stats = {}
     for category in categories:
@@ -173,7 +173,7 @@ def check_rogers_sequence(stats: Dict) -> Dict:
     Returns:
         Dictionary with validation results
     """
-    categories = ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard']
+    categories = ['early_adopters', 'early_majority', 'late_majority', 'laggards']
 
     # Check awareness timing order
     first_aware_times = [
@@ -225,9 +225,9 @@ def print_diffusion_report(stats: Dict, validation: Optional[Dict] = None):
         validation: Optional validation results from check_rogers_sequence
     """
     print("\n" + "="*90)
-    print("创新扩散时序分析报告")
+    print("Diffusion Sequence Analysis Report")
     print("="*90)
-    print(f"{'分类':<20} {'人数':<8} {'Aware率':<10} {'首次Aware':<12} {'中位Aware':<12} {'Adoption率':<12}")
+    print(f"{'Category':<20} {'Count':<8} {'Aware%':<10} {'First Aware':<12} {'Median Aware':<12} {'Adoption%':<12}")
     print("-"*90)
 
     for cat, data in stats.items():
@@ -239,9 +239,9 @@ def print_diffusion_report(stats: Dict, validation: Optional[Dict] = None):
 
     # Print delay statistics
     print("\n" + "="*90)
-    print("Aware → Adopt 延迟统计（反映决策速度）")
+    print("Aware → Adopt Delay Statistics (Decision Speed)")
     print("="*90)
-    print(f"{'分类':<20} {'平均延迟':<15} {'中位延迟':<15}")
+    print(f"{'Category':<20} {'Mean Delay':<15} {'Median Delay':<15}")
     print("-"*90)
 
     for cat, data in stats.items():
@@ -252,24 +252,24 @@ def print_diffusion_report(stats: Dict, validation: Optional[Dict] = None):
     # Print validation results
     if validation:
         print("\n" + "="*90)
-        print("Rogers理论验证")
+        print("Rogers' Theory Validation")
         print("="*90)
 
-        print(f"\n实际Awareness顺序: {' → '.join([c.replace('_', ' ').title() for c in validation['aware_sequence']])}")
-        print(f"预期顺序: {' → '.join([c.replace('_', ' ').title() for c in validation['expected_aware_sequence']])}")
+        print(f"\nActual Awareness Sequence: {' → '.join([c.replace('_', ' ').title() for c in validation['aware_sequence']])}")
+        print(f"Expected Sequence: {' → '.join([c.replace('_', ' ').title() for c in validation['expected_aware_sequence']])}")
 
         if validation['aware_matches_theory']:
-            print("✅ Awareness顺序符合Rogers理论预期！")
+            print("✅ Awareness sequence matches Rogers' theory prediction!")
         else:
-            print("⚠️  Awareness顺序与理论预期有偏差")
+            print("⚠️  Awareness sequence deviates from theoretical expectation")
 
-        print(f"\n实际Adoption顺序: {' → '.join([c.replace('_', ' ').title() for c in validation['adopted_sequence']])}")
-        print(f"预期顺序: {' → '.join([c.replace('_', ' ').title() for c in validation['expected_adopted_sequence']])}")
+        print(f"\nActual Adoption Sequence: {' → '.join([c.replace('_', ' ').title() for c in validation['adopted_sequence']])}")
+        print(f"Expected Sequence: {' → '.join([c.replace('_', ' ').title() for c in validation['expected_adopted_sequence']])}")
 
         if validation['adopted_matches_theory']:
-            print("✅ Adoption顺序符合Rogers理论预期！")
+            print("✅ Adoption sequence matches Rogers' theory prediction!")
         else:
-            print("⚠️  Adoption顺序与理论预期有偏差")
+            print("⚠️  Adoption sequence deviates from theoretical expectation")
 
     print("\n" + "="*90)
 
@@ -286,7 +286,7 @@ def get_category_timeseries(tracking_data: Dict, result: SimulationResult) -> Di
         Dictionary mapping category to time series data
     """
     agent_info = tracking_data['agent_info']
-    categories = ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard']
+    categories = ['early_adopters', 'early_majority', 'late_majority', 'laggards']
 
     timeseries = {}
     max_step = result.total_steps

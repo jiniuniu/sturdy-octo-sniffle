@@ -84,18 +84,16 @@ class PopulationGenerator:
     """
     Generator for heterogeneous agent populations.
 
-    Supports stratified sampling based on Rogers' diffusion categories:
-    - Innovators (2.5%): High innovativeness, low risk aversion
-    - Early Adopters (13.5%): Above average innovativeness
+    Supports stratified sampling based on Rogers' diffusion categories (4 categories):
+    - Early Adopters (16%): High innovativeness, low risk aversion (combines innovators + early adopters)
     - Early Majority (34%): Slightly above average, moderate conformity
     - Late Majority (34%): Below average, high conformity
     - Laggards (16%): Low innovativeness, high risk aversion
     """
 
-    # Rogers' standard distribution
+    # Rogers' distribution (4 categories)
     ROGERS_DISTRIBUTION = {
-        "innovators": 0.025,
-        "early_adopters": 0.135,
+        "early_adopters": 0.16,   # Combines innovators (2.5%) + early adopters (13.5%)
         "early_majority": 0.34,
         "late_majority": 0.34,
         "laggards": 0.16,
@@ -103,21 +101,14 @@ class PopulationGenerator:
 
     # Default trait ranges for each category
     DEFAULT_TRAIT_RANGES = {
-        "innovators": {
-            "attitude": (0.7, 0.95),
-            "pbc": (0.7, 0.9),
-            "conformity": (0.1, 0.4),
-            "risk_aversion": (0.0, 0.3),
-            "share_propensity": (0.7, 1.0),
-            "innovativeness": (0.8, 1.0),
-        },
         "early_adopters": {
-            "attitude": (0.6, 0.85),
-            "pbc": (0.6, 0.85),
-            "conformity": (0.3, 0.6),
-            "risk_aversion": (0.2, 0.5),
-            "share_propensity": (0.6, 0.9),
-            "innovativeness": (0.65, 0.85),
+            # Merged range from innovators and early adopters
+            "attitude": (0.6, 0.95),
+            "pbc": (0.6, 0.9),
+            "conformity": (0.1, 0.6),
+            "risk_aversion": (0.0, 0.5),
+            "share_propensity": (0.6, 1.0),
+            "innovativeness": (0.65, 1.0),
         },
         "early_majority": {
             "attitude": (0.5, 0.7),
@@ -250,7 +241,7 @@ class PopulationGenerator:
             graph: Network graph
             n_initial: Number of initial adopters
             strategy: Selection strategy
-                - "innovators": Select from innovators category
+                - "innovators" or "early_adopters": Select agents with highest innovativeness
                 - "random": Random selection
                 - "high_degree": Select high-degree nodes (hubs)
 
@@ -259,8 +250,8 @@ class PopulationGenerator:
         """
         node_ids = list(graph.nodes())
 
-        if strategy == "innovators":
-            # Select agents with highest innovativeness
+        if strategy in ["innovators", "early_adopters"]:
+            # Select agents with highest innovativeness (early adopters in 4-category system)
             candidates = []
             for node_id in node_ids:
                 traits = TPBAgent.get_all_traits(graph, node_id)

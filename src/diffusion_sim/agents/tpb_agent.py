@@ -135,7 +135,7 @@ class TPBAgent(BaseAgent):
     @staticmethod
     def categorize_agent(traits: Dict[str, float]) -> str:
         """
-        Categorize agent by Rogers' diffusion categories.
+        Categorize agent by Rogers' diffusion categories (4 categories).
 
         Based on innovativeness and risk aversion traits.
 
@@ -143,8 +143,8 @@ class TPBAgent(BaseAgent):
             traits: Agent traits dictionary
 
         Returns:
-            Category: "innovator", "early_adopter", "early_majority",
-                     "late_majority", or "laggard"
+            Category: "early_adopters", "early_majority",
+                     "late_majority", or "laggards"
         """
         innovativeness = traits.get("innovativeness", 0.5)
         risk_aversion = traits.get("risk_aversion", 0.5)
@@ -152,13 +152,11 @@ class TPBAgent(BaseAgent):
         # Combine scores (high innovativeness, low risk aversion = earlier adopter)
         score = (innovativeness + (1 - risk_aversion)) / 2
 
-        if score >= 0.8:
-            return "innovator"
-        elif score >= 0.65:
-            return "early_adopter"
+        if score >= 0.65:
+            return "early_adopters"
         elif score >= 0.5:
             return "early_majority"
         elif score >= 0.35:
             return "late_majority"
         else:
-            return "laggard"
+            return "laggards"

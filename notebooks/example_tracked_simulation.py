@@ -27,9 +27,9 @@ def main():
     """Run a complete tracked simulation analysis."""
 
     print("="*80)
-    print("创新扩散时序追踪实验")
+    print("Diffusion Sequence Tracking Experiment")
     print("="*80)
-    print("\n运行追踪仿真...")
+    print("\nRunning tracked simulation...")
 
     # 1. Run tracked simulation
     result, tracking_data, graph = run_tracked_simulation(
@@ -38,7 +38,7 @@ def main():
         p=0.1,              # Small-world network
         seed=42,            # Reproducibility
         initial_adopters=5, # 5 seed adopters (2.5%)
-        initial_strategy="innovators",  # Select innovators as seeds
+        initial_strategy="early_adopters",  # Select early adopters as seeds
         w_attitude=0.4,     # TPB weights
         w_social_norm=0.35,
         w_pbc=0.25,
@@ -46,23 +46,23 @@ def main():
         max_steps=100,
     )
 
-    print(f"仿真完成: {result.total_steps} 步")
-    print(f"最终采纳率: {result.final_adoption_rate:.1%}")
-    print(f"最终知晓率: {result.final_awareness_rate:.1%}")
+    print(f"Simulation complete: {result.total_steps} steps")
+    print(f"Final adoption rate: {result.final_adoption_rate:.1%}")
+    print(f"Final awareness rate: {result.final_awareness_rate:.1%}")
 
     # 2. Analyze diffusion sequence
-    print("\n分析扩散时序...")
+    print("\nAnalyzing diffusion sequence...")
     stats = analyze_diffusion_sequence(tracking_data)
 
     # 3. Validate against Rogers' theory
-    print("\n验证Rogers理论...")
+    print("\nValidating Rogers' theory...")
     validation = check_rogers_sequence(stats)
 
     # 4. Print detailed report
     print_diffusion_report(stats, validation)
 
     # 5. Visualize results
-    print("\n生成可视化...")
+    print("\nGenerating visualizations...")
 
     # Main visualization with 6 subplots
     fig1 = visualize_diffusion_sequence(tracking_data, result)
@@ -71,7 +71,7 @@ def main():
         dpi=150,
         bbox_inches='tight'
     )
-    print("✓ 详细分析图已保存")
+    print("✓ Detailed analysis plot saved")
 
     # Comparison plot
     fig2 = plot_category_comparison(tracking_data, result)
@@ -80,37 +80,37 @@ def main():
         dpi=150,
         bbox_inches='tight'
     )
-    print("✓ 分类对比图已保存")
+    print("✓ Category comparison plot saved")
 
     plt.show()
 
     # 6. Key findings
     print("\n" + "="*80)
-    print("关键发现")
+    print("Key Findings")
     print("="*80)
 
-    # Check if innovators are first
+    # Check if early adopters are first
     first_cat = validation['aware_sequence'][0] if validation['aware_sequence'] else None
-    if first_cat == 'innovator':
-        print("✅ Innovators首先知晓，符合预期")
+    if first_cat == 'early_adopters':
+        print("✅ Early Adopters became aware first, as expected")
     else:
-        print(f"⚠️  {first_cat.replace('_', ' ').title()}首先知晓，可能需要调整参数")
+        print(f"⚠️  {first_cat.replace('_', ' ').title()} became aware first, parameters may need adjustment")
 
     # Check adoption rate trend
-    adoption_rates = [stats[cat]['adoption_rate'] for cat in ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard'] if cat in stats]
+    adoption_rates = [stats[cat]['adoption_rate'] for cat in ['early_adopters', 'early_majority', 'late_majority', 'laggards'] if cat in stats]
     if len(adoption_rates) >= 2 and adoption_rates[0] >= adoption_rates[-1]:
-        print("✅ 采纳率呈递减趋势，符合预期")
+        print("✅ Adoption rates show decreasing trend, as expected")
     else:
-        print("⚠️  采纳率趋势异常")
+        print("⚠️  Adoption rate trend is unexpected")
 
     # Check delays
-    delays = [stats[cat].get('mean_delay', 0) or 0 for cat in ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard'] if cat in stats and stats[cat].get('mean_delay')]
+    delays = [stats[cat].get('mean_delay', 0) or 0 for cat in ['early_adopters', 'early_majority', 'late_majority', 'laggards'] if cat in stats and stats[cat].get('mean_delay')]
     if len(delays) >= 2 and delays[-1] >= delays[0]:
-        print("✅ 决策延迟递增，Laggards更犹豫，符合预期")
+        print("✅ Decision delays increase, Laggards more hesitant, as expected")
     else:
-        print("⚠️  决策延迟趋势需要关注")
+        print("⚠️  Decision delay trend needs attention")
 
-    print("\n实验完成！")
+    print("\nExperiment complete!")
 
 
 if __name__ == "__main__":

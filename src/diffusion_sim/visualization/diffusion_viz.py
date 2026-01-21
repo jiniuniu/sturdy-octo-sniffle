@@ -28,13 +28,12 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
         matplotlib Figure object
     """
     agent_info = tracking_data['agent_info']
-    categories = ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard']
+    categories = ['early_adopters', 'early_majority', 'late_majority', 'laggards']
     colors = {
-        'innovator': '#e74c3c',
-        'early_adopter': '#e67e22',
+        'early_adopters': '#e74c3c',
         'early_majority': '#2ecc71',
         'late_majority': '#3498db',
-        'laggard': '#9b59b6'
+        'laggards': '#9b59b6'
     }
 
     fig, axes = plt.subplots(2, 3, figsize=figsize)
@@ -55,9 +54,9 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
     if plot_data:
         parts = axes[0, 0].violinplot(plot_data, positions=range(len(plot_labels)), showmedians=True)
         axes[0, 0].set_xticks(range(len(plot_labels)))
-        axes[0, 0].set_xticklabels([c.replace('_', '\n') for c in plot_labels], fontsize=9)
+        axes[0, 0].set_xticklabels([c.replace('_', ' ').title() for c in plot_labels], fontsize=9)
         axes[0, 0].set_ylabel('Awareness Time (step)', fontsize=10)
-        axes[0, 0].set_title('Awareness时间分布\n（验证时序是否符合理论）', fontsize=11, fontweight='bold')
+        axes[0, 0].set_title('Awareness Time Distribution\n(Verify Temporal Sequence)', fontsize=11, fontweight='bold')
         axes[0, 0].grid(True, alpha=0.3, axis='y')
 
     # 2. First aware time comparison
@@ -82,9 +81,9 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
             linewidth=1.5
         )
         axes[0, 1].set_xticks(range(len(valid_cats)))
-        axes[0, 1].set_xticklabels([c.replace('_', '\n') for c in valid_cats], fontsize=9)
+        axes[0, 1].set_xticklabels([c.replace('_', ' ').title() for c in valid_cats], fontsize=9)
         axes[0, 1].set_ylabel('First Awareness (step)', fontsize=10)
-        axes[0, 1].set_title('各分类首次知晓时间\n（期望: Innovators→EA→...→Laggards）', fontsize=11, fontweight='bold')
+        axes[0, 1].set_title('First Awareness Time by Category\n(Expected: EA → EM → LM → Laggards)', fontsize=11, fontweight='bold')
         axes[0, 1].grid(True, alpha=0.3, axis='y')
 
         # Add value labels
@@ -108,7 +107,7 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
 
     axes[0, 2].set_xlabel('Time Step', fontsize=10)
     axes[0, 2].set_ylabel('Cumulative Aware Count', fontsize=10)
-    axes[0, 2].set_title('Awareness累积曲线\n（验证传播顺序）', fontsize=11, fontweight='bold')
+    axes[0, 2].set_title('Cumulative Awareness Curves\n(Verify Diffusion Order)', fontsize=11, fontweight='bold')
     axes[0, 2].legend(fontsize=8, loc='best')
     axes[0, 2].grid(True, alpha=0.3)
 
@@ -127,9 +126,9 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
     if plot_adopt_data:
         parts = axes[1, 0].violinplot(plot_adopt_data, positions=range(len(plot_adopt_labels)), showmedians=True)
         axes[1, 0].set_xticks(range(len(plot_adopt_labels)))
-        axes[1, 0].set_xticklabels([c.replace('_', '\n') for c in plot_adopt_labels], fontsize=9)
+        axes[1, 0].set_xticklabels([c.replace('_', ' ').title() for c in plot_adopt_labels], fontsize=9)
         axes[1, 0].set_ylabel('Adoption Time (step)', fontsize=10)
-        axes[1, 0].set_title('Adoption时间分布', fontsize=11, fontweight='bold')
+        axes[1, 0].set_title('Adoption Time Distribution', fontsize=11, fontweight='bold')
         axes[1, 0].grid(True, alpha=0.3, axis='y')
 
     # 5. Aware vs Adopted rates
@@ -157,9 +156,9 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
         axes[1, 1].bar(x - width/2, aware_rates, width, label='Aware', alpha=0.8, color='#3498db')
         axes[1, 1].bar(x + width/2, adopt_rates, width, label='Adopted', alpha=0.8, color='#2ecc71')
         axes[1, 1].set_xticks(x)
-        axes[1, 1].set_xticklabels([c.replace('_', '\n') for c in rate_cats], fontsize=9)
+        axes[1, 1].set_xticklabels([c.replace('_', ' ').title() for c in rate_cats], fontsize=9)
         axes[1, 1].set_ylabel('Rate (%)', fontsize=10)
-        axes[1, 1].set_title('Awareness vs Adoption率\n（期望: 递减）', fontsize=11, fontweight='bold')
+        axes[1, 1].set_title('Awareness vs Adoption Rate\n(Expected: Decreasing)', fontsize=11, fontweight='bold')
         axes[1, 1].legend(fontsize=9)
         axes[1, 1].grid(True, alpha=0.3, axis='y')
         axes[1, 1].set_ylim(0, 110)
@@ -182,7 +181,7 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
     if plot_delays:
         bp = axes[1, 2].boxplot(
             plot_delays,
-            labels=[c.replace('_', '\n') for c in delay_labels],
+            labels=[c.replace('_', ' ').title() for c in delay_labels],
             patch_artist=True
         )
 
@@ -192,7 +191,7 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
             patch.set_alpha(0.7)
 
         axes[1, 2].set_ylabel('Delay (steps)', fontsize=10)
-        axes[1, 2].set_title('Aware→Adopt延迟\n（反映决策速度，期望: 递增）', fontsize=11, fontweight='bold')
+        axes[1, 2].set_title('Aware → Adopt Delay\n(Decision Speed, Expected: Increasing)', fontsize=11, fontweight='bold')
         axes[1, 2].grid(True, alpha=0.3, axis='y')
 
     plt.tight_layout()
@@ -212,8 +211,8 @@ def plot_category_comparison(tracking_data: Dict, result: SimulationResult, figs
         matplotlib Figure object
     """
     agent_info = tracking_data['agent_info']
-    categories = ['innovator', 'early_adopter', 'early_majority', 'late_majority', 'laggard']
-    colors = ['#e74c3c', '#e67e22', '#2ecc71', '#3498db', '#9b59b6']
+    categories = ['early_adopters', 'early_majority', 'late_majority', 'laggards']
+    colors = ['#e74c3c', '#2ecc71', '#3498db', '#9b59b6']
 
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
@@ -257,7 +256,7 @@ def plot_category_comparison(tracking_data: Dict, result: SimulationResult, figs
     axes[0].bar(x + width/2, median_times, width, label='Median Aware', alpha=0.8, color='#e67e22')
 
     axes[0].set_xticks(x)
-    axes[0].set_xticklabels([m['category'].replace('_', '\n') for m in metrics], fontsize=9)
+    axes[0].set_xticklabels([m['category'].replace('_', ' ').title() for m in metrics], fontsize=9)
     axes[0].set_ylabel('Time Step', fontsize=10)
     axes[0].set_title('Awareness Timing by Category', fontsize=12, fontweight='bold')
     axes[0].legend()
@@ -271,7 +270,7 @@ def plot_category_comparison(tracking_data: Dict, result: SimulationResult, figs
         axes[1].text(i, v + 2, f'{v:.1f}%', ha='center', va='bottom', fontweight='bold')
 
     axes[1].set_xticks(x)
-    axes[1].set_xticklabels([m['category'].replace('_', '\n') for m in metrics], fontsize=9)
+    axes[1].set_xticklabels([m['category'].replace('_', ' ').title() for m in metrics], fontsize=9)
     axes[1].set_ylabel('Adoption Rate (%)', fontsize=10)
     axes[1].set_title('Final Adoption Rate by Category', fontsize=12, fontweight='bold')
     axes[1].grid(True, alpha=0.3, axis='y')
