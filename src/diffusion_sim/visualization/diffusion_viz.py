@@ -14,8 +14,8 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
     Generates 6 subplots showing:
     1. Awareness time distribution by category (violin plot)
     2. First awareness time by category (bar chart)
-    3. Cumulative awareness curves by category
-    4. Adoption time distribution by category (violin plot)
+    3. Cumulative awareness curves by category (%)
+    4. Cumulative adoption curves by category (%)
     5. Awareness vs Adoption rates by category
     6. Aware→Adopt delay by category (box plot)
 
@@ -115,25 +115,30 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
     axes[0, 2].legend(fontsize=8, loc='best')
     axes[0, 2].grid(True, alpha=0.3)
 
-    # 4. Adoption time distribution
-    adopt_data = {}
+    # 4. Cumulative adoption curves (percentage)
     for cat in categories:
-        adopt_times = [
+        # Get total agents in this category
+        total_in_cat = sum(1 for aid, info in agent_info.items() if info['category'] == cat)
+
+        adopt_times = sorted([
             info['adopted_at'] for aid, info in agent_info.items()
             if info['category'] == cat and info['adopted_at'] is not None
-        ]
-        adopt_data[cat] = adopt_times
+        ])
+        if adopt_times and total_in_cat > 0:
+            # Calculate cumulative percentage
+            cumulative_pct = [(i + 1) / total_in_cat * 100 for i in range(len(adopt_times))]
+            axes[1, 0].plot(
+                adopt_times, cumulative_pct,
+                label=cat.replace('_', ' ').title(),
+                linewidth=2.5,
+                color=colors[cat]
+            )
 
-    plot_adopt_data = [adopt_data[cat] for cat in categories if adopt_data[cat]]
-    plot_adopt_labels = [cat for cat in categories if adopt_data[cat]]
-
-    if plot_adopt_data:
-        parts = axes[1, 0].violinplot(plot_adopt_data, positions=range(len(plot_adopt_labels)), showmedians=True)
-        axes[1, 0].set_xticks(range(len(plot_adopt_labels)))
-        axes[1, 0].set_xticklabels([c.replace('_', ' ').title() for c in plot_adopt_labels], fontsize=9)
-        axes[1, 0].set_ylabel('Adoption Time (step)', fontsize=10)
-        axes[1, 0].set_title('Adoption Time Distribution', fontsize=11, fontweight='bold')
-        axes[1, 0].grid(True, alpha=0.3, axis='y')
+    axes[1, 0].set_xlabel('Time Step', fontsize=10)
+    axes[1, 0].set_ylabel('Cumulative Adoption (%)', fontsize=10)
+    axes[1, 0].set_title('Cumulative Adoption Curves\n(Verify Adoption Order)', fontsize=11, fontweight='bold')
+    axes[1, 0].legend(fontsize=8, loc='best')
+    axes[1, 0].grid(True, alpha=0.3)
 
     # 5. Aware vs Adopted rates
     aware_rates = []
