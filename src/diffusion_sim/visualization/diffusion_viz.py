@@ -90,23 +90,27 @@ def visualize_diffusion_sequence(tracking_data: Dict, result: SimulationResult, 
         for i, v in enumerate(first_aware):
             axes[0, 1].text(i, v + 0.5, f'{int(v)}', ha='center', va='bottom', fontweight='bold')
 
-    # 3. Cumulative awareness curves
+    # 3. Cumulative awareness curves (percentage)
     for cat in categories:
+        # Get total agents in this category
+        total_in_cat = sum(1 for aid, info in agent_info.items() if info['category'] == cat)
+
         aware_times = sorted([
             info['aware_at'] for aid, info in agent_info.items()
             if info['category'] == cat and info['aware_at'] is not None
         ])
-        if aware_times:
-            cumulative = list(range(1, len(aware_times) + 1))
+        if aware_times and total_in_cat > 0:
+            # Calculate cumulative percentage
+            cumulative_pct = [(i + 1) / total_in_cat * 100 for i in range(len(aware_times))]
             axes[0, 2].plot(
-                aware_times, cumulative,
+                aware_times, cumulative_pct,
                 label=cat.replace('_', ' ').title(),
                 linewidth=2.5,
                 color=colors[cat]
             )
 
     axes[0, 2].set_xlabel('Time Step', fontsize=10)
-    axes[0, 2].set_ylabel('Cumulative Aware Count', fontsize=10)
+    axes[0, 2].set_ylabel('Cumulative Aware (%)', fontsize=10)
     axes[0, 2].set_title('Cumulative Awareness Curves\n(Verify Diffusion Order)', fontsize=11, fontweight='bold')
     axes[0, 2].legend(fontsize=8, loc='best')
     axes[0, 2].grid(True, alpha=0.3)
