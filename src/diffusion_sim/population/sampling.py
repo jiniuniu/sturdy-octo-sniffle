@@ -187,10 +187,10 @@ class PopulationGenerator:
 
             category_nodes = node_ids[idx:idx + n_category]
 
-            # Sample and assign traits
+            # Sample and assign traits with category
             for node_id in category_nodes:
                 traits = self._sample_traits_for_category(category)
-                TPBAgent.initialize_agent(graph, node_id, traits)
+                TPBAgent.initialize_agent(graph, node_id, traits, category=category)
 
             idx += n_category
 
@@ -229,8 +229,14 @@ class PopulationGenerator:
         counts = {cat: 0 for cat in self.distribution.keys()}
 
         for node_id in graph.nodes():
-            traits = TPBAgent.get_all_traits(graph, node_id)
-            category = TPBAgent.categorize_agent(traits)
+            # Use category assigned during sampling
+            category = TPBAgent.get_category(graph, node_id)
+
+            # Fallback to trait-based categorization for legacy agents
+            if category is None:
+                traits = TPBAgent.get_all_traits(graph, node_id)
+                category = TPBAgent.categorize_agent(traits)
+
             if category in counts:
                 counts[category] += 1
 

@@ -15,8 +15,9 @@ class AgentState(BaseModel):
     adopted: bool = False  # Has the agent adopted the innovation?
     shared_with: Set[int] = Field(default_factory=set)  # IDs of neighbors shared with
 
-    # For future TPB implementation
+    # For TPB implementation
     traits: Optional[Dict[str, float]] = None
+    category: Optional[str] = None  # Rogers' category assigned during sampling
 
 
 class NetworkConfig(BaseModel):

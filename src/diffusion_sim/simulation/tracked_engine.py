@@ -66,7 +66,12 @@ class TrackedTPBDiffusionEngine:
         """Initialize tracking info for all agents."""
         for node_id in self.graph.nodes():
             traits = TPBAgent.get_all_traits(self.graph, node_id)
-            category = TPBAgent.categorize_agent(traits)
+            # Use category assigned during sampling (not computed from traits)
+            category = TPBAgent.get_category(self.graph, node_id)
+
+            # Fallback to trait-based categorization for legacy agents
+            if category is None:
+                category = TPBAgent.categorize_agent(traits)
 
             self.tracking_info[node_id] = {
                 'category': category,

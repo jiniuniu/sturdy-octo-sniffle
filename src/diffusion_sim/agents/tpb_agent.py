@@ -26,15 +26,17 @@ class TPBAgent(BaseAgent):
     def initialize_agent(
         graph: nx.Graph,
         agent_id: int,
-        traits: Dict[str, float]
+        traits: Dict[str, float],
+        category: Optional[str] = None
     ) -> None:
         """
-        Initialize agent with TPB traits.
+        Initialize agent with TPB traits and Rogers category.
 
         Args:
             graph: Network graph
             agent_id: Agent ID
             traits: Dictionary of trait values
+            category: Rogers' category (early_adopters, early_majority, late_majority, laggards)
         """
         # Validate required traits
         required = ["attitude", "pbc", "conformity", "risk_aversion", "share_propensity"]
@@ -44,8 +46,8 @@ class TPBAgent(BaseAgent):
             if not 0 <= traits[trait] <= 1:
                 raise ValueError(f"Trait {trait} must be in [0, 1], got {traits[trait]}")
 
-        # Create agent state with traits
-        agent_state = AgentState(agent_id=agent_id, traits=traits)
+        # Create agent state with traits and category
+        agent_state = AgentState(agent_id=agent_id, traits=traits, category=category)
         graph.nodes[agent_id]["agent_state"] = agent_state
 
     @staticmethod
@@ -115,6 +117,24 @@ class TPBAgent(BaseAgent):
         return state.traits.copy()
 
     @staticmethod
+    def get_category(graph: nx.Graph, agent_id: int) -> Optional[str]:
+        """
+        Get Rogers' category for an agent.
+
+        Returns the category assigned during population sampling.
+        If not available, returns None (legacy agents).
+
+        Args:
+            graph: Network graph
+            agent_id: Agent ID
+
+        Returns:
+            Category string or None
+        """
+        state = BaseAgent.get_state(graph, agent_id)
+        return state.category
+
+    @staticmethod
     def compute_attitude_from_traits(traits: Dict[str, float]) -> float:
         """
         Compute attitude score from agent traits.
@@ -137,9 +157,13 @@ class TPBAgent(BaseAgent):
         """
         Categorize agent by Rogers' diffusion categories (4 categories).
 
-        Based on innovativeness trait (aligned with Gaussian parameters).
+        NOTE: This is a fallback method for legacy agents. New agents should
+        have their category assigned during population sampling and stored in
+        AgentState.category. Use TPBAgent.get_category() to retrieve it.
 
-        Thresholds are set to align with mean values:
+        This method infers category from innovativeness trait.
+
+        Thresholds are set to align with Gaussian mean values:
         - EA: mean=0.85, std=0.10 → threshold >= 0.70
         - EM: mean=0.55, std=0.10 → threshold >= 0.45
         - LM: mean=0.35, std=0.10 → threshold >= 0.25
