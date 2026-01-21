@@ -16,9 +16,11 @@ from .core import (
     DecisionModel,
 )
 from .networks import SmallWorldNetworkBuilder
-from .agents import BaseAgent
-from .simulation import SimpleDiffusionEngine
+from .agents import BaseAgent, TPBAgent
+from .simulation import SimpleDiffusionEngine, TPBDiffusionEngine
 from .visualization import NetworkVisualizer, TimeSeriesVisualizer
+from .decisions import TPBDecisionModel, SimpleTPBModel
+from .population import PopulationGenerator, TraitSampler
 
 __all__ = [
     "__version__",
@@ -33,8 +35,16 @@ __all__ = [
     "SmallWorldNetworkBuilder",
     # Agents
     "BaseAgent",
+    "TPBAgent",
     # Simulation
     "SimpleDiffusionEngine",
+    "TPBDiffusionEngine",
+    # Decisions
+    "TPBDecisionModel",
+    "SimpleTPBModel",
+    # Population
+    "PopulationGenerator",
+    "TraitSampler",
     # Visualization
     "NetworkVisualizer",
     "TimeSeriesVisualizer",
