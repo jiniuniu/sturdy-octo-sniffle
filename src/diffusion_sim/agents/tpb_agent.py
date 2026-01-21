@@ -137,7 +137,13 @@ class TPBAgent(BaseAgent):
         """
         Categorize agent by Rogers' diffusion categories (4 categories).
 
-        Based on innovativeness and risk aversion traits.
+        Based on innovativeness trait (aligned with Gaussian parameters).
+
+        Thresholds are set to align with mean values:
+        - EA: mean=0.85, std=0.10 → threshold >= 0.70
+        - EM: mean=0.55, std=0.10 → threshold >= 0.45
+        - LM: mean=0.35, std=0.10 → threshold >= 0.25
+        - Laggards: mean=0.15, std=0.10 → threshold < 0.25
 
         Args:
             traits: Agent traits dictionary
@@ -147,16 +153,13 @@ class TPBAgent(BaseAgent):
                      "late_majority", or "laggards"
         """
         innovativeness = traits.get("innovativeness", 0.5)
-        risk_aversion = traits.get("risk_aversion", 0.5)
 
-        # Combine scores (high innovativeness, low risk aversion = earlier adopter)
-        score = (innovativeness + (1 - risk_aversion)) / 2
-
-        if score >= 0.65:
+        # Categorize based on innovativeness thresholds
+        if innovativeness >= 0.70:
             return "early_adopters"
-        elif score >= 0.5:
+        elif innovativeness >= 0.45:
             return "early_majority"
-        elif score >= 0.35:
+        elif innovativeness >= 0.25:
             return "late_majority"
         else:
             return "laggards"
