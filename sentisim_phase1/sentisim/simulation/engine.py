@@ -345,6 +345,11 @@ class SimulationEngine:
                     next_wave.append(new_post)
                     result.posts.append(new_post)
 
+                    if verbose:
+                        content_preview = new_post.content[:50] + "..." if len(new_post.content) > 50 else new_post.content
+                        print(f"    [新帖子] {new_post.post_id[:12]}... ({new_post.post_type.value}) "
+                              f"by {meta['user_persona']}: \"{content_preview}\"")
+
             result.steps_run = step + 1
 
             if verbose:
