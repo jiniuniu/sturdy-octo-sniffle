@@ -184,6 +184,7 @@ class SimulationEngine:
         test_content: str,
         max_steps: int = 10,
         on_step_complete: Optional[callable] = None,
+        verbose: bool = False,
     ) -> SimulationResult:
         """
         运行传播模拟
@@ -192,6 +193,7 @@ class SimulationEngine:
             test_content: 待测试的品牌内容
             max_steps: 最大模拟步数
             on_step_complete: 每步完成后的回调 (step, wave_size, new_posts_count)
+            verbose: 是否打印详细日志
 
         Returns:
             模拟结果
@@ -218,8 +220,14 @@ class SimulationEngine:
         # 当前传播队列
         current_wave = [brand_post]
 
+        if verbose:
+            print(f"\n[Verbose] 开始模拟，最大步数: {max_steps}")
+            print(f"[Verbose] 品牌帖子: {brand_post.post_id}")
+
         for step in range(max_steps):
             if not current_wave:
+                if verbose:
+                    print(f"\n[Step {step}] 当前波次为空，结束模拟")
                 break
 
             next_wave = []
@@ -227,6 +235,11 @@ class SimulationEngine:
             # 收集本轮所有需要模拟的 (用户, 帖子, 作者, 是否品牌帖子)
             simulation_tasks = []
             task_metadata = []  # 记录元数据用于后续处理
+
+            if verbose:
+                print(f"\n[Step {step}] 当前波次帖子数: {len(current_wave)}")
+
+            skipped_count = 0  # 记录跳过的用户数
 
             for post in current_wave:
                 is_brand_post = post.author_id == self.brand_account_id
@@ -238,15 +251,21 @@ class SimulationEngine:
                 # 获取能看到这条帖子的用户
                 audience_ids = self._get_audience(post.author_id)
 
+                post_skipped = 0
+                post_reached = 0
+
                 for user_id in audience_ids:
                     # 跳过已经看过这个根帖子的用户
                     if self._has_seen_root(user_id, root_post_id):
+                        skipped_count += 1
+                        post_skipped += 1
                         continue
 
                     user = self.users.get(user_id)
                     if user:
                         # 标记为已触达
                         self._mark_as_seen(user_id, root_post_id)
+                        post_reached += 1
 
                         simulation_tasks.append((user, post, author, is_brand_post))
                         task_metadata.append(
@@ -260,23 +279,44 @@ class SimulationEngine:
                             }
                         )
 
+                if verbose:
+                    post_type_str = "品牌帖" if is_brand_post else post.post_type.value
+                    print(f"  - 帖子 {post.post_id[:12]}... ({post_type_str}): "
+                          f"受众={len(audience_ids)}, 新触达={post_reached}, 跳过={post_skipped}")
+
+            if verbose:
+                print(f"[Step {step}] 总计: 新触达用户={len(simulation_tasks)}, 跳过已触达={skipped_count}")
+
             if not simulation_tasks:
+                if verbose:
+                    print(f"[Step {step}] 没有新用户需要处理，结束模拟")
                 break
 
             # 批量模拟用户反应
+            if verbose:
+                print(f"[Step {step}] 正在模拟 {len(simulation_tasks)} 个用户的反应...")
+
             responses = await self.response_simulator.simulate_batch(
                 simulation_tasks,
                 max_concurrent=self.max_concurrent,
             )
 
             # 处理结果
+            step_action_counts: dict[str, int] = {}
+            error_count = 0
+
             for i, response in enumerate(responses):
                 meta = task_metadata[i]
                 user = self.users[meta["user_id"]]
 
                 if isinstance(response, Exception):
                     # 跳过失败的模拟
+                    error_count += 1
                     continue
+
+                # 统计 action
+                action_name = response.action.value
+                step_action_counts[action_name] = step_action_counts.get(action_name, 0) + 1
 
                 # 记录反应
                 record = ResponseRecord(
@@ -307,10 +347,21 @@ class SimulationEngine:
 
             result.steps_run = step + 1
 
+            if verbose:
+                action_summary = ", ".join(f"{k}={v}" for k, v in sorted(step_action_counts.items()))
+                print(f"[Step {step}] 反应统计: {action_summary}")
+                if error_count > 0:
+                    print(f"[Step {step}] 错误数: {error_count}")
+                print(f"[Step {step}] 产生新帖子: {len(next_wave)} 条")
+                print(f"[Step {step}] 累计触达: {result.total_reach}")
+
             # 回调
             if on_step_complete:
                 on_step_complete(step, len(simulation_tasks), len(next_wave))
 
             current_wave = next_wave
+
+        if verbose:
+            print(f"\n[Verbose] 模拟结束，共运行 {result.steps_run} 步")
 
         return result
