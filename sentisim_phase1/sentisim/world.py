@@ -168,6 +168,7 @@ class World:
             "edges": list(topology.graph.edges()),
             "user_ids": topology.user_ids,
             "brand_account_id": topology.brand_account_id,
+            "brand_followers": topology.get_followers(topology.brand_account_id),
         }
 
         meta = WorldMeta(
@@ -335,10 +336,14 @@ class World:
 
         logger.info(f"开始模拟: {test_content[:50]}...")
 
+        # 获取关注品牌的用户列表
+        brand_followers = self.network_data.get("brand_followers", [])
+
         engine = SimulationEngine(
             llm=llm,
             users=self.users_dict,
             brand_account_id=self.brand_account_id,
+            brand_followers=brand_followers,
             max_concurrent=max_concurrent,
         )
 
