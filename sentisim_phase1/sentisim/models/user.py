@@ -52,6 +52,14 @@ class UserProfile(BaseModel):
     profile: str = Field(description="用户画像描述，80-120字")
 
 
+class BatchUserProfiles(BaseModel):
+    """批量用户画像（用于 LLM 结构化输出）"""
+
+    profiles: list[str] = Field(
+        description="用户画像列表，每个元素是一个用户的画像描述（80-120字）"
+    )
+
+
 class UserMemoryList(BaseModel):
     """用户初始记忆（用于 LLM 结构化输出）"""
 
