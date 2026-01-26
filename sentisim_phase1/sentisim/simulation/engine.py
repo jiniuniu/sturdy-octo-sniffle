@@ -340,14 +340,20 @@ class SimulationEngine:
                     timestamp=step + 1,
                 )
                 if new_post:
-                    # 新帖子继承原帖的根帖子ID
-                    self._post_roots[new_post.post_id] = meta["root_post_id"]
+                    # 设置新帖子的根帖子ID
+                    if new_post.post_type == PostType.CREATION:
+                        # 二创内容：root 是自己，形成新的传播链
+                        self._post_roots[new_post.post_id] = new_post.post_id
+                    else:
+                        # 转发类内容：继承原帖的根帖子ID
+                        self._post_roots[new_post.post_id] = meta["root_post_id"]
                     next_wave.append(new_post)
                     result.posts.append(new_post)
 
                     if verbose:
+                        root_info = "新传播链" if new_post.post_type == PostType.CREATION else f"继承自 {meta['root_post_id'][:12]}..."
                         content_preview = new_post.content[:50] + "..." if len(new_post.content) > 50 else new_post.content
-                        print(f"    [新帖子] {new_post.post_id[:12]}... ({new_post.post_type.value}) "
+                        print(f"    [新帖子] {new_post.post_id[:12]}... ({new_post.post_type.value}, {root_info}) "
                               f"by {meta['user_persona']}: \"{content_preview}\"")
 
             result.steps_run = step + 1
