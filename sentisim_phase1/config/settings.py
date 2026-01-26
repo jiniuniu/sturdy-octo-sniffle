@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # 网络拓扑参数
     ba_model_m: int = 3  # BA模型中每个新节点连接的边数
-    brand_follow_ratio: float = 0.7  # 关注品牌账号的用户比例
+    brand_follow_ratio: float = 0.3  # 关注品牌账号的用户比例
 
     # 影响力分层阈值
     kol_percentile: float = 0.03

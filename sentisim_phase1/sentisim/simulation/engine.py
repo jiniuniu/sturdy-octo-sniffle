@@ -76,6 +76,7 @@ class SimulationEngine:
         llm: SentiSimLLM,
         users: dict[str, User],
         brand_account_id: str,
+        brand_followers: list[str] = None,
         max_concurrent: Optional[int] = None,
     ):
         """
@@ -83,11 +84,13 @@ class SimulationEngine:
             llm: LLM 客户端
             users: 用户字典 {user_id: User}
             brand_account_id: 品牌账号ID
+            brand_followers: 关注品牌的用户ID列表
             max_concurrent: 最大并发数
         """
         self.llm = llm
         self.users = users
         self.brand_account_id = brand_account_id
+        self.brand_followers = set(brand_followers) if brand_followers else set()
         self.max_concurrent = max_concurrent
 
         self.response_simulator = ResponseSimulator(llm)
@@ -122,31 +125,13 @@ class SimulationEngine:
     def _get_audience(self, author_id: str) -> list[str]:
         """获取能看到帖子的用户（作者的粉丝）"""
         if author_id == self.brand_account_id:
-            # 品牌帖子：所有关注品牌的用户
-            return [
-                uid
-                for uid, user in self.users.items()
-                if self.brand_account_id in user.follower_ids
-                or uid in self._get_brand_followers()
-            ]
+            # 品牌帖子：只有关注品牌的用户能看到
+            return [uid for uid in self.brand_followers if uid in self.users]
 
         author = self.users.get(author_id)
         if author:
             return author.follower_ids
         return []
-
-    def _get_brand_followers(self) -> list[str]:
-        """获取关注品牌的用户"""
-        # 从用户的 follower_ids 反推：谁的粉丝列表里没有品牌，但品牌在他们关注列表里
-        # 这里简化处理：遍历所有用户，检查他们是否关注了品牌
-        # 实际上应该在构建网络时记录
-        followers = []
-        for uid, user in self.users.items():
-            # 检查用户是否关注品牌（品牌在用户的关注列表 = 用户在品牌的粉丝列表）
-            # 由于我们的数据结构是 follower_ids（谁关注了我），需要反向查找
-            # 这里假设如果用户的 follower_ids 不包含品牌，但用户属于网络，则可能关注品牌
-            followers.append(uid)
-        return followers
 
     def _create_new_post(
         self,

@@ -298,10 +298,16 @@ async def test_simulation_engine():
     # 8. 运行模拟
     print("\n开始运行模拟...")
     print("-" * 50)
+
+    # 获取关注品牌的用户列表
+    brand_followers = topology.get_followers(topology.brand_account_id)
+    print(f"关注品牌的用户数: {len(brand_followers)}/{len(users)}")
+
     engine = SimulationEngine(
         llm=llm,
         users=users_dict,
         brand_account_id=topology.brand_account_id,
+        brand_followers=brand_followers,
         max_concurrent=5,
     )
 
