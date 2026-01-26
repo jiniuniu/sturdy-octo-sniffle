@@ -3,19 +3,27 @@
 
 运行方式:
     export OPENROUTER_API_KEY="your-api-key"
-    cd sentisim
+    cd sentisim_phase1
     python tests/test_simulation.py
 """
 
 import asyncio
+import random
 import sys
 
 sys.path.insert(0, ".")
 
 from sentisim.generators import MemoryGenerator, PersonaGenerator, UserGenerator
 from sentisim.llm import SentiSimLLM
-from sentisim.models import BrandContext, InfluenceLevel, Post, PostType, User
-from sentisim.network import InfluenceAssigner, NetworkBuilder
+from sentisim.models import (
+    BrandContext,
+    InfluenceLevel,
+    PersonaType,
+    Post,
+    PostType,
+    User,
+)
+from sentisim.network import InfluenceAssigner, NetworkBuilder, NetworkTopology
 from sentisim.simulation import MemoryManager, ResponseSimulator, SimulationEngine
 
 # 测试用的品牌上下文
@@ -34,7 +42,105 @@ TEST_BRAND = BrandContext(
     sensitivity_topics=["食品安全", "添加剂/代糖", "价格", "虚假宣传"],
 )
 
-TEST_CONTENT = "【重磅升级】全新XX饮料，0糖0卡，健康新选择！现在购买享8折优惠！"
+# 多个测试内容例子
+TEST_CONTENTS = [
+    {
+        "name": "新品上市+优惠",
+        "content": "【重磅升级】全新XX饮料，0糖0卡，健康新选择！现在购买享8折优惠！",
+    },
+    {
+        "name": "明星代言官宣",
+        "content": "官宣！XX饮料正式签约顶流明星@某某某 为品牌代言人！新广告片即将上线，敬请期待~",
+    },
+    {
+        "name": "成分升级公告",
+        "content": "【配方升级公告】应广大消费者要求，XX饮料全线产品已更换为天然甜菊糖，告别人工代糖！",
+    },
+    {
+        "name": "涨价通知",
+        "content": "【重要通知】因原材料成本上涨，XX饮料将于下月起调整零售价，涨幅约15%。感谢您的理解与支持。",
+    },
+    {
+        "name": "争议回应",
+        "content": "针对近期网络上关于XX饮料的不实言论，我们郑重声明：产品完全符合国家食品安全标准，欢迎监督检验。",
+    },
+    {
+        "name": "联名活动",
+        "content": "XX饮料 x 热门IP联名款限量发售！集齐6款瓶身可兑换限定周边，快来打卡集卡吧！",
+    },
+    {
+        "name": "用户UGC活动",
+        "content": "晒出你和XX饮料的故事，带话题#XX陪我的日子# 发微博，有机会赢取全年免费畅饮！",
+    },
+    {
+        "name": "环保倡议",
+        "content": "XX饮料正式启动绿色瓶盖计划！即日起，所有产品包装采用100%可回收材料，为地球减负！",
+    },
+]
+
+
+def print_initialization_data(
+    personas: list[PersonaType],
+    users: list[User],
+    topology: NetworkTopology,
+):
+    """打印初始化数据"""
+    print("\n" + "=" * 50)
+    print("初始化数据详情")
+    print("=" * 50)
+
+    # 打印人群类型
+    print("\n【人群类型】")
+    for i, persona in enumerate(personas, 1):
+        print(f"  {i}. {persona.type_name} ({persona.proportion:.0%})")
+        desc_preview = (
+            persona.description[:80] + "..."
+            if len(persona.description) > 80
+            else persona.description
+        )
+        print(f"     {desc_preview}")
+
+    # 统计影响力分布
+    print("\n【影响力分布】")
+    influence_counts = {}
+    for user in users:
+        level = user.influence_level.value
+        influence_counts[level] = influence_counts.get(level, 0) + 1
+    for level, count in sorted(influence_counts.items()):
+        print(f"  - {level}: {count} 人")
+
+    # 统计人群分布
+    print("\n【人群分布】")
+    persona_counts = {}
+    for user in users:
+        persona_counts[user.persona_type] = persona_counts.get(user.persona_type, 0) + 1
+    for persona, count in sorted(persona_counts.items(), key=lambda x: -x[1]):
+        print(f"  - {persona}: {count} 人")
+
+    # 打印部分用户详情
+    print("\n【用户样例（前5个）】")
+    for user in users[:5]:
+        print(f"\n  用户ID: {user.user_id}")
+        print(f"  人群类型: {user.persona_type}")
+        print(f"  影响力: {user.influence_level.value}")
+        print(f"  粉丝数: {len(user.follower_ids)}")
+        profile_preview = (
+            user.profile[:100] + "..." if len(user.profile) > 100 else user.profile
+        )
+        print(f"  画像: {profile_preview}")
+        if user.memory:
+            print(f"  记忆: {user.memory}")
+
+    # 网络统计
+    print("\n【网络统计】")
+    print(f"  - 总用户数: {len(topology.user_ids)}")
+    print(f"  - 品牌账号: {topology.brand_account_id}")
+    total_edges = sum(len(followers) for followers in topology.follower_map.values())
+    print(f"  - 总关注关系: {total_edges}")
+    avg_followers = total_edges / len(topology.user_ids) if topology.user_ids else 0
+    print(f"  - 平均粉丝数: {avg_followers:.1f}")
+
+    print("\n" + "=" * 50)
 
 
 async def test_response_simulator():
@@ -43,6 +149,10 @@ async def test_response_simulator():
 
     llm = SentiSimLLM()
     simulator = ResponseSimulator(llm)
+
+    # 随机选择测试内容
+    test_case = random.choice(TEST_CONTENTS)
+    print(f"测试内容: [{test_case['name']}]")
 
     # 创建测试用户
     test_user = User(
@@ -62,7 +172,7 @@ async def test_response_simulator():
     test_post = Post(
         post_id="post_001",
         author_id="brand_official",
-        content=TEST_CONTENT,
+        content=test_case["content"],
         post_type=PostType.BRAND_ORIGINAL,
         timestamp=0,
     )
@@ -155,12 +265,17 @@ async def test_simulation_engine():
     """测试完整模拟引擎（小规模）"""
     print("\n=== 测试模拟引擎 ===")
 
+    # 随机选择测试内容
+    test_case = random.choice(TEST_CONTENTS)
+    print(f"\n选中的测试内容: [{test_case['name']}]")
+    print(f"内容: {test_case['content']}")
+
     llm = SentiSimLLM()
 
     # 1. 构建小规模网络
-    print("构建网络拓扑...")
+    print("\n构建网络拓扑...")
     builder = NetworkBuilder()
-    topology = builder.build(user_count=20)  # 小规模测试
+    topology = builder.build(user_count=10)  # 小规模测试
 
     # 2. 分配影响力
     print("分配影响力...")
@@ -191,29 +306,32 @@ async def test_simulation_engine():
     memory_gen = MemoryGenerator(llm)
     await memory_gen.initialize_memories(users, TEST_BRAND, max_concurrent=5)
 
-    # 6. 构建用户字典
+    # 6. 打印初始化数据
+    print_initialization_data(personas, users, topology)
+
+    # 7. 构建用户字典
     users_dict = {u.user_id: u for u in users}
 
-    # 7. 运行模拟
-    print("运行模拟...")
+    # 8. 运行模拟
+    print("\n开始运行模拟...")
+    print("-" * 50)
     engine = SimulationEngine(
         llm=llm,
         users=users_dict,
         brand_account_id=topology.brand_account_id,
+        brand_followers=topology.get_followers(topology.brand_account_id),
         max_concurrent=5,
     )
 
-    def on_step(step, wave_size, new_posts):
-        print(f"  Step {step}: 处理 {wave_size} 条反应, 产生 {new_posts} 条新帖子")
-
     result = await engine.run(
-        test_content=TEST_CONTENT,
+        test_content=test_case["content"],
         max_steps=3,  # 小规模测试只跑3步
-        on_step_complete=on_step,
+        verbose=True,  # 启用详细日志
     )
 
-    # 8. 输出结果
-    print(f"\n模拟结果:")
+    # 9. 输出结果
+    print("\n" + "-" * 50)
+    print("模拟结果汇总:")
     print(f"  - 总触达: {result.total_reach}")
     print(f"  - 运行步数: {result.steps_run}")
     print(f"  - 总帖子数: {len(result.posts)}")
@@ -244,12 +362,17 @@ async def run_all_tests():
     print("SentiSim 阶段3测试：模拟引擎")
     print("=" * 50)
 
-    try:
-        # 1. 单个用户反应模拟
-        await test_response_simulator()
+    # 显示可用的测试内容
+    print("\n可用的测试内容:")
+    for i, tc in enumerate(TEST_CONTENTS, 1):
+        print(f"  {i}. [{tc['name']}] {tc['content'][:40]}...")
 
-        # 2. 记忆管理器（不需要 LLM）
-        test_memory_manager()
+    try:
+        # # 1. 单个用户反应模拟
+        # await test_response_simulator()
+
+        # # 2. 记忆管理器（不需要 LLM）
+        # test_memory_manager()
 
         # 3. 完整模拟引擎（小规模）
         await test_simulation_engine()
