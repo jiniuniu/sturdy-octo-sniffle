@@ -93,9 +93,31 @@ class SimulationEngine:
         self.response_simulator = ResponseSimulator(llm)
         self.memory_manager = MemoryManager()
 
+        # 追踪每个帖子的根帖子ID {post_id: root_post_id}
+        self._post_roots: dict[str, str] = {}
+        # 追踪已触达用户 {root_post_id: set(user_ids)}
+        self._seen_users: dict[str, set[str]] = {}
+
     def _generate_post_id(self) -> str:
         """生成帖子ID"""
         return f"post_{uuid.uuid4().hex[:8]}"
+
+    def _get_root_post_id(self, post: Post) -> str:
+        """获取帖子的根帖子ID（用于去重）"""
+        if post.post_id in self._post_roots:
+            return self._post_roots[post.post_id]
+        # 品牌原帖的根是自己
+        return post.post_id
+
+    def _has_seen_root(self, user_id: str, root_post_id: str) -> bool:
+        """检查用户是否已经看过这个根帖子"""
+        return user_id in self._seen_users.get(root_post_id, set())
+
+    def _mark_as_seen(self, user_id: str, root_post_id: str) -> None:
+        """标记用户已经看过这个根帖子"""
+        if root_post_id not in self._seen_users:
+            self._seen_users[root_post_id] = set()
+        self._seen_users[root_post_id].add(user_id)
 
     def _get_audience(self, author_id: str) -> list[str]:
         """获取能看到帖子的用户（作者的粉丝）"""
@@ -176,6 +198,10 @@ class SimulationEngine:
         """
         result = SimulationResult()
 
+        # 重置追踪状态
+        self._post_roots = {}
+        self._seen_users = {}
+
         # 创建品牌初始帖子
         brand_post = Post(
             post_id=self._generate_post_id(),
@@ -185,6 +211,9 @@ class SimulationEngine:
             timestamp=0,
         )
         result.posts.append(brand_post)
+
+        # 品牌原帖的根是自己
+        self._post_roots[brand_post.post_id] = brand_post.post_id
 
         # 当前传播队列
         current_wave = [brand_post]
@@ -203,12 +232,22 @@ class SimulationEngine:
                 is_brand_post = post.author_id == self.brand_account_id
                 author = None if is_brand_post else self.users.get(post.author_id)
 
+                # 获取这个帖子的根帖子ID
+                root_post_id = self._get_root_post_id(post)
+
                 # 获取能看到这条帖子的用户
                 audience_ids = self._get_audience(post.author_id)
 
                 for user_id in audience_ids:
+                    # 跳过已经看过这个根帖子的用户
+                    if self._has_seen_root(user_id, root_post_id):
+                        continue
+
                     user = self.users.get(user_id)
                     if user:
+                        # 标记为已触达
+                        self._mark_as_seen(user_id, root_post_id)
+
                         simulation_tasks.append((user, post, author, is_brand_post))
                         task_metadata.append(
                             {
@@ -217,6 +256,7 @@ class SimulationEngine:
                                 "post_id": post.post_id,
                                 "post": post,
                                 "step": step,
+                                "root_post_id": root_post_id,
                             }
                         )
 
@@ -260,6 +300,8 @@ class SimulationEngine:
                     timestamp=step + 1,
                 )
                 if new_post:
+                    # 新帖子继承原帖的根帖子ID
+                    self._post_roots[new_post.post_id] = meta["root_post_id"]
                     next_wave.append(new_post)
                     result.posts.append(new_post)
 
