@@ -17,9 +17,16 @@ class AgentState(BaseModel):
     adopted: bool = False  # Has the agent adopted the innovation?
     shared_with: Set[int] = Field(default_factory=set)  # IDs of neighbors shared with
 
-    # For TPB implementation
+    # For TPB implementation (innovation diffusion)
     traits: Optional[Dict[str, float]] = None
     category: Optional[str] = None  # Rogers' category assigned during sampling
+
+    # For sentiment diffusion (brand crisis scenario)
+    interpreted: bool = False  # Has agent formed an attitude/interpretation?
+    expressed: bool = False  # Has agent publicly expressed their sentiment?
+    polarity: Optional[float] = (
+        None  # Sentiment direction: -1 (negative) to 1 (positive)
+    )
 
 
 class NetworkConfig(BaseModel):

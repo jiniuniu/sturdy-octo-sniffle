@@ -41,9 +41,9 @@ def main():
         seed=42,  # Reproducibility
         initial_adopters=5,  # 5 seed adopters (2.5%)
         initial_strategy="early_adopters",  # Select early adopters as seeds
-        w_attitude=0.4,  # TPB weights
-        w_social_norm=0.35,
-        w_pbc=0.25,
+        w_attitude=0.8,  # TPB weights
+        w_social_norm=0.1,
+        w_pbc=0.1,
         friction=0.0,  # No friction for clear signal
         max_steps=100,
     )

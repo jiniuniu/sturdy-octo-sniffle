@@ -124,19 +124,19 @@ class PopulationGenerator:
         "early_majority": {
             "attitude": {"mean": 0.60, "std": 0.10},
             "pbc": {"mean": 0.60, "std": 0.10},
-            "share_propensity": {"mean": 0.65, "std": 0.10},
+            "share_propensity": {"mean": 0.5, "std": 0.10},
             "innovativeness": {"mean": 0.55, "std": 0.10},
         },
         "late_majority": {
-            "attitude": {"mean": 0.40, "std": 0.10},
+            "attitude": {"mean": 0.30, "std": 0.10},
             "pbc": {"mean": 0.40, "std": 0.10},
-            "share_propensity": {"mean": 0.45, "std": 0.10},
+            "share_propensity": {"mean": 0.1, "std": 0.10},
             "innovativeness": {"mean": 0.35, "std": 0.10},
         },
         "laggards": {
-            "attitude": {"mean": 0.20, "std": 0.10},
+            "attitude": {"mean": 0.1, "std": 0.10},
             "pbc": {"mean": 0.20, "std": 0.10},
-            "share_propensity": {"mean": 0.25, "std": 0.10},
+            "share_propensity": {"mean": 0.05, "std": 0.10},
             "innovativeness": {"mean": 0.15, "std": 0.10},
         },
     }
