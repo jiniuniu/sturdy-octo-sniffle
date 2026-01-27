@@ -15,7 +15,6 @@ class ActionType(str, Enum):
     LIKE = "like"  # 点赞
     FORWARD = "forward"  # 直接转发
     FORWARD_COMMENT = "forward_comment"  # 转发并评论
-    CREATE = "create"  # 发原创内容
 
 
 class UserResponse(BaseModel):
@@ -34,7 +33,7 @@ class UserResponse(BaseModel):
     action: ActionType = Field(description="决定采取的行动")
 
     content: Optional[str] = Field(
-        default=None, description="如果选择转发评论或发原创，写的内容"
+        default=None, description="如果选择转发评论，写的评论内容"
     )
 
     @property
@@ -53,7 +52,6 @@ class UserResponse(BaseModel):
         return self.action in [
             ActionType.FORWARD,
             ActionType.FORWARD_COMMENT,
-            ActionType.CREATE,
         ]
 
     @property

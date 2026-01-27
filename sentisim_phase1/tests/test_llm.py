@@ -118,8 +118,8 @@ async def test_user_response_generation():
     - first_reaction: 第一反应（一句话）
     - emotion: 情绪感受
     - impression_change: 对品牌印象的变化（如果没变化就说"没有变化"）
-    - action: 你会怎么做（ignore/like/forward/forward_comment/create）
-    - content: 如果要发内容，写什么（否则留空）
+    - action: 你会怎么做（ignore/like/forward/forward_comment）
+    - content: 如果选择 forward_comment，写什么评论（否则留空）
     """
 
     result = await llm.generate_structured(prompt, UserResponse)

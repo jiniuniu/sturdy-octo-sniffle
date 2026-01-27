@@ -73,7 +73,7 @@ TEST_CONTENTS = [
     {"name": "争议回应", "content": "针对近期网络上关于XX饮料的不实言论，我们郑重声明：产品完全符合国家食品安全标准，欢迎监督检验。"},
     {"name": "联名活动", "content": "XX饮料 x 热门IP联名款限量发售！集齐6款瓶身可兑换限定周边，快来打卡集卡吧！"},
     {"name": "用户UGC活动", "content": "晒出你和XX饮料的故事，带话题#XX陪我的日子# 发微博，有机会赢取全年免费畅饮！"},
-    {"name": "环保倡议", "content": "XX饮料正式启动"绿色瓶盖"计划！即日起，所有产品包装采用100%可回收材料，为地球减负！"},
+    {"name": "环保倡议", "content": "XX饮料正式启动「绿色瓶盖」计划！即日起，所有产品包装采用100%可回收材料，为地球减负！"},
 ]
 
 DEFAULT_TEST_CONTENT = TEST_CONTENTS[0]["content"]
@@ -273,7 +273,6 @@ def show_simulation_result(world: World, result):
             type_color = {
                 PostType.FORWARD: "green",
                 PostType.FORWARD_COMMENT: "cyan",
-                PostType.CREATION: "magenta",
             }.get(post.post_type, "white")
             console.print(f"  [dim]>[/] [{type_color}][{post.post_type.value}][/] by [cyan]{persona}[/]")
             console.print(f"    [dim]{post.content[:70]}...[/]")
@@ -301,7 +300,6 @@ def show_propagation_tree(result, world: World):
             type_color = {
                 PostType.FORWARD: "green",
                 PostType.FORWARD_COMMENT: "cyan",
-                PostType.CREATION: "magenta",
             }.get(child.post_type, "white")
 
             label = f"[{type_color}]{child.post_type.value}[/] by [dim]{persona}[/]"

@@ -80,14 +80,13 @@ class ResponseSimulator:
    - like: 点赞
    - forward: 直接转发
    - forward_comment: 转发并写一句评论
-   - create: 发一条自己的内容
 
-5. **发布内容**：如果选择了 forward_comment 或 create，你会写什么？（否则留空或填 null）
+5. **发布内容**：如果选择了 forward_comment，你会写什么评论？（否则留空或填 null）
 
 注意：
 - 请真实模拟这个用户的反应，不要过于戏剧化
 - 大多数普通用户看到内容后会选择 ignore 或 like
-- 只有内容真正触动用户时才会转发或创作
+- 只有内容真正触动用户时才会转发
 """
 
         response = await self.llm.generate_structured(prompt, UserResponse)
@@ -140,14 +139,13 @@ class ResponseSimulator:
    - like: 点赞
    - forward: 直接转发
    - forward_comment: 转发并写一句评论
-   - create: 发一条自己的内容
 
-5. **发布内容**：如果选择了 forward_comment 或 create，你会写什么？（否则留空或填 null）
+5. **发布内容**：如果选择了 forward_comment，你会写什么评论？（否则留空或填 null）
 
 注意：
 - 请真实模拟这个用户的反应，不要过于戏剧化
 - 大多数普通用户看到内容后会选择 ignore 或 like
-- 只有内容真正触动用户时才会转发或创作
+- 只有内容真正触动用户时才会转发
 """
             prompts.append(prompt)
 
