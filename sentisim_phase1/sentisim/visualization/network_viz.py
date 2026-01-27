@@ -158,6 +158,7 @@ class NetworkVisualizer:
         height: str = "600px",
         width: str = "100%",
         show_labels: bool = False,
+        show_follow_edges: bool = True,
     ) -> str:
         """
         渲染传播过程图
@@ -169,6 +170,7 @@ class NetworkVisualizer:
             height: 图的高度
             width: 图的宽度
             show_labels: 是否显示节点标签
+            show_follow_edges: 是否显示关注关系边
 
         Returns:
             HTML 字符串
@@ -205,8 +207,8 @@ class NetworkVisualizer:
         # 构建帖子映射
         posts_dict = {p["post_id"]: p for p in posts_data}
 
-        # 找出参与传播的用户
-        involved_users = set()
+        # 找出参与传播的用户和传播边
+        spreaders = set()  # 产生传播行为的用户
         propagation_edges = []
 
         for post in posts_data:
@@ -215,16 +217,16 @@ class NetworkVisualizer:
                 original_post_id = post.get("original_post_id")
                 if original_post_id and original_post_id in posts_dict:
                     original_author = posts_dict[original_post_id]["author_id"]
-                    involved_users.add(author)
-                    involved_users.add(original_author)
+                    spreaders.add(author)
+                    spreaders.add(original_author)
                     propagation_edges.append((original_author, author, post["post_type"]))
 
         # 添加品牌账号（起点）
-        involved_users.add(self.brand_account_id)
+        spreaders.add(self.brand_account_id)
 
         # 只显示参与传播的节点（或所有被触达的用户）
         reached_users = set(r["user_id"] for r in responses)
-        display_users = involved_users | reached_users
+        display_users = spreaders | reached_users
 
         # 添加节点
         for node in display_users:
@@ -274,7 +276,10 @@ class NetworkVisualizer:
                     title=title,
                 )
 
-        # 添加传播边
+        # 记录已添加的边，避免重复
+        added_edges = set()
+
+        # 添加传播边（实线、粗、彩色）
         for src, dst, ptype in propagation_edges:
             if src in display_users and dst in display_users:
                 edge_color = "#2ecc71" if ptype == "forward" else "#3498db"
@@ -282,24 +287,47 @@ class NetworkVisualizer:
                     src,
                     dst,
                     color=edge_color,
-                    width=2,
+                    width=3,
                     title=f"{'转发' if ptype == 'forward' else '转发评论'}",
                     arrows="to",
                 )
+                added_edges.add((src, dst))
 
-        # 添加品牌到第一批用户的边（品牌粉丝中被触达的）
-        brand_followers = set(self.network_data.get("brand_followers", []))
-        step_0_users = set(r["user_id"] for r in responses if r["step"] == 0)
-        for uid in step_0_users:
-            if uid in brand_followers and uid in display_users:
-                net.add_edge(
-                    self.brand_account_id,
-                    uid,
-                    color="#9b59b6",
-                    width=1.5,
-                    dashes=True,
-                    title="品牌曝光",
-                )
+        # 添加关注关系边（虚线、细、灰色）
+        if show_follow_edges:
+            # 品牌粉丝关系
+            brand_followers = set(self.network_data.get("brand_followers", []))
+            for uid in brand_followers:
+                if uid in display_users and (self.brand_account_id, uid) not in added_edges:
+                    net.add_edge(
+                        self.brand_account_id,
+                        uid,
+                        color="#d5d5d5",
+                        width=0.8,
+                        dashes=True,
+                        title="关注品牌",
+                        arrows="to",
+                    )
+                    added_edges.add((self.brand_account_id, uid))
+
+            # 传播用户的粉丝关系：spreader -> 他的粉丝（在display_users中的）
+            for spreader in spreaders:
+                if spreader == self.brand_account_id:
+                    continue
+                # 获取该用户的粉丝（谁关注了他）
+                followers = self.graph.predecessors(spreader)
+                for follower in followers:
+                    if follower in display_users and (spreader, follower) not in added_edges:
+                        net.add_edge(
+                            spreader,
+                            follower,
+                            color="#d5d5d5",
+                            width=0.8,
+                            dashes=True,
+                            title=f"关注 {spreader[-4:]}",
+                            arrows="to",
+                        )
+                        added_edges.add((spreader, follower))
 
         # 生成 HTML
         with tempfile.NamedTemporaryFile(

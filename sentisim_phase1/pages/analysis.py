@@ -274,11 +274,16 @@ def render_network_tab(world, posts_data: list, responses_data: list):
         st.markdown("**图例**")
         if viz_type == "传播过程":
             st.markdown("""
-            - ⭐ **紫色星** - 品牌账号
-            - 🟢 **绿色** - 传播用户
-            - 🔴 **红色** - 负面反应
-            - 🟡 **黄色** - 点赞
-            - ⚪ **灰色** - 忽略/其他
+            **节点颜色：**
+            - ⭐ 紫色星 - 品牌账号
+            - 🟢 绿色 - 传播用户
+            - 🔴 红色 - 负面反应
+            - 🟡 黄色 - 点赞
+            - ⚪ 灰色 - 忽略/其他
+
+            **边的类型：**
+            - ━━ 实线粗 - 转发/转评
+            - ┈┈ 虚线细 - 关注关系
             """)
 
             # 步数选择
@@ -290,6 +295,9 @@ def render_network_tab(world, posts_data: list, responses_data: list):
                 value=max_step,
                 help="拖动查看传播过程的演化",
             )
+
+            # 显示关注关系选项
+            show_follow = st.checkbox("显示关注关系", value=True, help="显示用户之间的关注关系（虚线）")
         elif viz_type == "传播树":
             st.markdown("""
             - ⭐ **紫色星** - 品牌发布
@@ -317,6 +325,7 @@ def render_network_tab(world, posts_data: list, responses_data: list):
                     step=show_step,
                     height="550px",
                     show_labels=show_labels,
+                    show_follow_edges=show_follow,
                 )
             elif viz_type == "传播树":
                 html = viz.render_propagation_tree(
