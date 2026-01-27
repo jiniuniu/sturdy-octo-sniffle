@@ -150,7 +150,10 @@ class SimulationEngine:
             content = original_post.content  # 直接转发，内容不变
         else:  # FORWARD_COMMENT
             post_type = PostType.FORWARD_COMMENT
-            content = response.content or f"转发：{original_post.content[:50]}..."
+            # 格式：用户评论 + 原帖内容
+            comment = response.content or "[转发]"
+            original_content = original_post.content
+            content = f"{comment}\n——\n转发内容：{original_content}"
 
         return Post(
             post_id=self._generate_post_id(),
