@@ -90,8 +90,8 @@ class NetworkBuilder:
         directed = nx.DiGraph()
 
         for u, v in ba_graph.edges():
-            # 随机决定关注方向（60% 双向，40% 单向）
-            if random.random() < 0.6:
+            # 随机决定关注方向（5% 双向，95% 单向）
+            if random.random() < 0.05:
                 directed.add_edge(u, v)
                 directed.add_edge(v, u)
             else:

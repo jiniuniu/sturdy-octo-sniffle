@@ -91,8 +91,8 @@ Post
 ├── post_id: str
 ├── author_id: str
 ├── content: str           # 帖子内容
-├── post_type: str         # "brand_original" | "forward" | "forward_comment" | "creation"
-├── original_post_id: str  # 原帖ID（如果是转发/二创）
+├── post_type: str         # "brand_original" | "forward" | "forward_comment"
+├── original_post_id: str  # 原帖ID（如果是转发）
 └── timestamp: int
 ```
 

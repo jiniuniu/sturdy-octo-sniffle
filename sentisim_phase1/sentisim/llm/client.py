@@ -21,17 +21,14 @@ class SentiSimLLM:
         self,
         model: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 2000,
     ):
         self.model = model or settings.default_model
         self.temperature = temperature
-        self.max_tokens = max_tokens
 
         # 初始化 LangChain ChatOpenAI（兼容 OpenRouter）
         self._llm = ChatOpenAI(
             model=self.model,
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
             api_key=settings.openrouter_api_key,
             base_url=settings.openrouter_base_url,
         )

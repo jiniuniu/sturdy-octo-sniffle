@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
-from sentisim.generators import MemoryGenerator, PersonaGenerator, UserGenerator
+from sentisim.generators import PersonaGenerator, UserGenerator
 from sentisim.llm import SentiSimLLM
 from sentisim.models import BrandContext, InfluenceLevel, PersonaType, User
 from sentisim.network import InfluenceAssigner, NetworkBuilder
@@ -120,7 +120,7 @@ class World:
         logger.info(f"创建虚拟世界: {world_id}")
 
         # 1. 构建网络拓扑
-        logger.info(f"[1/5] 构建网络拓扑 (用户数: {user_count})")
+        logger.info(f"[1/4] 构建网络拓扑 (用户数: {user_count})")
         builder = NetworkBuilder()
         topology = builder.build(user_count=user_count)
         logger.info(
@@ -128,21 +128,21 @@ class World:
         )
 
         # 2. 分配影响力
-        logger.info("[2/5] 分配影响力角色")
+        logger.info("[2/4] 分配影响力角色")
         assigner = InfluenceAssigner()
         influence_levels = assigner.assign(topology)
         stats = assigner.get_stats(influence_levels)
         logger.info(f"  分布: {stats['counts']}")
 
         # 3. 生成人群类型
-        logger.info(f"[3/5] 生成人群类型 (数量: {persona_count})")
+        logger.info(f"[3/4] 生成人群类型 (数量: {persona_count})")
         persona_gen = PersonaGenerator(llm)
         personas = await persona_gen.generate(brand_context, count=persona_count)
         for p in personas:
             logger.info(f"  [{p.proportion:5.1f}%] {p.type_name}")
 
-        # 4. 生成用户画像
-        logger.info(f"[4/5] 生成用户画像 (并发: {max_concurrent})")
+        # 4. 生成用户画像和初始记忆（合并为一步）
+        logger.info(f"[4/4] 生成用户画像和初始记忆 (并发: {max_concurrent})")
         user_gen = UserGenerator(llm)
         users = await user_gen.generate_users(
             user_ids=topology.user_ids,
@@ -150,24 +150,18 @@ class World:
             influence_levels=influence_levels,
             follower_counts=topology.follower_counts,
             follower_map=topology.follower_map,
+            brand_context=brand_context,
             max_concurrent=max_concurrent,
         )
-        logger.info(f"  生成了 {len(users)} 个用户")
-
-        # 5. 初始化记忆
-        logger.info(f"[5/5] 初始化用户记忆 (并发: {max_concurrent})")
-        memory_gen = MemoryGenerator(llm)
-        await memory_gen.initialize_memories(
-            users, brand_context, max_concurrent=max_concurrent
-        )
         users_with_memory = sum(1 for u in users if u.memory)
-        logger.info(f"  有记忆的用户: {users_with_memory}/{len(users)}")
+        logger.info(f"  生成了 {len(users)} 个用户，有记忆: {users_with_memory}")
 
         # 构建网络数据（用于持久化）
         network_data = {
             "edges": list(topology.graph.edges()),
             "user_ids": topology.user_ids,
             "brand_account_id": topology.brand_account_id,
+            "brand_followers": topology.get_followers(topology.brand_account_id),
         }
 
         meta = WorldMeta(
@@ -335,10 +329,14 @@ class World:
 
         logger.info(f"开始模拟: {test_content[:50]}...")
 
+        # 获取关注品牌的用户列表
+        brand_followers = self.network_data.get("brand_followers", [])
+
         engine = SimulationEngine(
             llm=llm,
             users=self.users_dict,
             brand_account_id=self.brand_account_id,
+            brand_followers=brand_followers,
             max_concurrent=max_concurrent,
         )
 

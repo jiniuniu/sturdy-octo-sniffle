@@ -12,9 +12,9 @@ import sys
 
 sys.path.insert(0, ".")
 
-from sentisim.generators import MemoryGenerator, PersonaGenerator, UserGenerator
+from sentisim.generators import PersonaGenerator, UserGenerator
 from sentisim.llm import SentiSimLLM
-from sentisim.models import BrandContext, User
+from sentisim.models import BrandContext
 from sentisim.network import InfluenceAssigner, NetworkBuilder, NetworkTopology
 
 # 测试用的品牌上下文
@@ -109,8 +109,8 @@ async def test_persona_generation():
 
 
 async def test_user_generation(topology: NetworkTopology, influence_levels, personas):
-    """测试用户画像生成（小规模）"""
-    print("\n=== 测试用户画像生成 ===")
+    """测试用户画像生成（小规模，包含初始记忆）"""
+    print("\n=== 测试用户画像生成（含初始记忆）===")
 
     llm = SentiSimLLM()
     generator = UserGenerator(llm)
@@ -126,6 +126,7 @@ async def test_user_generation(topology: NetworkTopology, influence_levels, pers
             uid: topology.get_follower_count(uid) for uid in test_user_ids
         },
         follower_map={uid: topology.get_followers(uid) for uid in test_user_ids},
+        brand_context=TEST_BRAND,
         max_concurrent=3,
     )
 
@@ -136,36 +137,13 @@ async def test_user_generation(topology: NetworkTopology, influence_levels, pers
         )
         print(f"  粉丝: {user.follower_count}")
         print(f"  画像: {user.profile[:80]}...")
+        if user.memory:
+            print(f"  记忆: {user.memory[0][:50]}...")
 
     assert len(users) == 5
     print("✓ 测试通过")
 
     return users
-
-
-async def test_memory_initialization(users: list[User]):
-    """测试记忆初始化"""
-    print("\n=== 测试记忆初始化 ===")
-
-    llm = SentiSimLLM()
-    generator = MemoryGenerator(llm)
-
-    await generator.initialize_memories(
-        users=users,
-        brand_context=TEST_BRAND,
-        max_concurrent=3,
-    )
-
-    print("用户记忆初始化结果:")
-    for user in users:
-        print(f"\n  {user.user_id}:")
-        if user.memory:
-            for mem in user.memory:
-                print(f"    - {mem}")
-        else:
-            print("    (无记忆)")
-
-    print("✓ 测试通过")
 
 
 async def run_all_tests():
@@ -184,11 +162,8 @@ async def run_all_tests():
         # 3. 人群类型生成（需要 LLM）
         personas = await test_persona_generation()
 
-        # 4. 用户画像生成（需要 LLM，批量）
+        # 4. 用户画像生成（需要 LLM，批量，包含初始记忆）
         users = await test_user_generation(topology, influence_levels, personas)
-
-        # 5. 记忆初始化（需要 LLM，批量）
-        await test_memory_initialization(users)
 
         print("\n" + "=" * 50)
         print("所有测试通过 ✓")
