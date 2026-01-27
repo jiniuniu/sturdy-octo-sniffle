@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from sentisim.generators import MemoryGenerator, PersonaGenerator, UserGenerator
+from sentisim.generators import PersonaGenerator, UserGenerator
 from sentisim.llm import SentiSimLLM
 from sentisim.models import BrandContext, InfluenceLevel, Post, PostType, User
 from sentisim.network import InfluenceAssigner, NetworkBuilder
@@ -271,8 +271,8 @@ async def test_simulation_engine():
     personas = await persona_gen.generate(TEST_BRAND, count=4)  # 少量人群
     print(f"  生成了 {len(personas)} 种人群")
 
-    # 4. 生成用户
-    print("生成用户画像...")
+    # 4. 生成用户（包含初始记忆）
+    print("生成用户画像和初始记忆...")
     user_gen = UserGenerator(llm)
     users = await user_gen.generate_users(
         user_ids=topology.user_ids,
@@ -280,22 +280,19 @@ async def test_simulation_engine():
         influence_levels=influence_levels,
         follower_counts=topology.follower_counts,
         follower_map=topology.follower_map,
+        brand_context=TEST_BRAND,
         max_concurrent=5,
     )
-    print(f"  生成了 {len(users)} 个用户")
+    users_with_memory = sum(1 for u in users if u.memory)
+    print(f"  生成了 {len(users)} 个用户，有记忆: {users_with_memory}")
 
-    # 5. 初始化记忆
-    print("初始化记忆...")
-    memory_gen = MemoryGenerator(llm)
-    await memory_gen.initialize_memories(users, TEST_BRAND, max_concurrent=5)
-
-    # 6. 打印初始化数据
+    # 5. 打印初始化数据
     print_initialization_data(personas, users, topology)
 
-    # 7. 构建用户字典
+    # 6. 构建用户字典
     users_dict = {u.user_id: u for u in users}
 
-    # 8. 运行模拟
+    # 7. 运行模拟
     print("\n开始运行模拟...")
     print("-" * 50)
 

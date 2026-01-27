@@ -53,10 +53,25 @@ class UserProfile(BaseModel):
 
 
 class BatchUserProfiles(BaseModel):
-    """批量用户画像（用于 LLM 结构化输出）"""
+    """批量用户画像（用于 LLM 结构化输出）- 已废弃，使用 BatchUsersWithMemories"""
 
     profiles: list[str] = Field(
         description="用户画像列表，每个元素是一个用户的画像描述（80-120字）"
+    )
+
+
+class UserWithMemory(BaseModel):
+    """单个用户的画像和初始记忆"""
+
+    profile: str = Field(description="用户画像描述（80-120字）")
+    initial_memory: str = Field(description="用户对品牌的初始记忆或印象（一句话）")
+
+
+class BatchUsersWithMemories(BaseModel):
+    """批量用户画像和初始记忆（用于 LLM 结构化输出）"""
+
+    users: list[UserWithMemory] = Field(
+        description="用户列表，每个元素包含画像和初始记忆"
     )
 
 
