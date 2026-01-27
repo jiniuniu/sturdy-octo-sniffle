@@ -8,7 +8,6 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from sentisim.simulation import SimulationResult
 
 
 def load_simulation_from_path(
@@ -42,71 +41,25 @@ def render():
 
     # 检查数据来源
     world = st.session_state.current_world
-    simulation = st.session_state.get("current_simulation")
     selected_sim = st.session_state.get("selected_simulation")
 
     if not world:
-        st.warning("请先加载一个世界")
+        st.warning("请先在「数据管理」页面加载一个世界")
         return
 
-    # 如果有选中的历史模拟，从文件加载
-    if selected_sim:
-        config, result_stats, responses_data, posts_data = load_simulation_from_path(
-            selected_sim["path"]
-        )
-        st.info(f"查看历史模拟: {selected_sim['sim_id']}")
-        render_from_data(world, config, result_stats, responses_data, posts_data)
-    elif simulation:
-        render_from_result(world, simulation)
-    else:
-        st.info("请先运行模拟，或在「运行模拟」页面选择一个历史模拟查看")
+    if not selected_sim:
+        st.info("请在「数据管理」页面选择一个模拟记录查看")
+        return
 
+    # 从文件加载模拟数据
+    config, result_stats, responses_data, posts_data = load_simulation_from_path(
+        selected_sim["path"]
+    )
 
-def render_from_result(world, result: SimulationResult):
-    """从 SimulationResult 对象渲染"""
-
-    # 转换为数据格式
-    responses_data = []
-    for record in result.responses:
-        responses_data.append(
-            {
-                "step": record.step,
-                "user_id": record.user_id,
-                "user_persona": record.user_persona,
-                "response": {
-                    "first_reaction": record.response.first_reaction,
-                    "emotion": record.response.emotion,
-                    "impression_change": record.response.impression_change,
-                    "action": record.response.action.value,
-                    "content": record.response.content,
-                    "will_spread": record.response.will_spread,
-                    "is_negative": record.response.is_negative,
-                },
-            }
-        )
-
-    result_stats = {
-        "total_reach": result.total_reach,
-        "steps_run": result.steps_run,
-        "total_posts": len(result.posts),
-        "spreading_posts": len(result.get_spreading_posts()),
-        "action_counts": result.get_action_counts(),
-        "emotion_counts": result.get_emotion_counts(),
-        "negative_count": len(result.get_negative_responses()),
-    }
-
-    config = {"test_content": result.posts[0].content if result.posts else ""}
-
-    posts_data = [
-        {
-            "post_id": p.post_id,
-            "author_id": p.author_id,
-            "content": p.content,
-            "post_type": p.post_type.value,
-            "timestamp": p.timestamp,
-        }
-        for p in result.posts
-    ]
+    # 显示当前查看的模拟
+    st.markdown(f"**模拟 ID:** `{selected_sim['sim_id']}`")
+    st.markdown(f"**测试内容:** {config['test_content']}")
+    st.divider()
 
     render_from_data(world, config, result_stats, responses_data, posts_data)
 
