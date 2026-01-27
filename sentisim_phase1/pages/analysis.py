@@ -1,5 +1,5 @@
 """
-页面4: 分析结果
+页面: 分析结果
 """
 
 import json
@@ -8,7 +8,9 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from sentisim.simulation import SimulationResult
+import streamlit.components.v1 as components
+from sentisim.visualization import NetworkVisualizer
+from sentisim.visualization.network_viz import load_network_data
 
 
 def load_simulation_from_path(
@@ -42,71 +44,25 @@ def render():
 
     # 检查数据来源
     world = st.session_state.current_world
-    simulation = st.session_state.get("current_simulation")
     selected_sim = st.session_state.get("selected_simulation")
 
     if not world:
-        st.warning("请先加载一个世界")
+        st.warning("请先在「数据管理」页面加载一个世界")
         return
 
-    # 如果有选中的历史模拟，从文件加载
-    if selected_sim:
-        config, result_stats, responses_data, posts_data = load_simulation_from_path(
-            selected_sim["path"]
-        )
-        st.info(f"查看历史模拟: {selected_sim['sim_id']}")
-        render_from_data(world, config, result_stats, responses_data, posts_data)
-    elif simulation:
-        render_from_result(world, simulation)
-    else:
-        st.info("请先运行模拟，或在「运行模拟」页面选择一个历史模拟查看")
+    if not selected_sim:
+        st.info("请在「数据管理」页面选择一个模拟记录查看")
+        return
 
+    # 从文件加载模拟数据
+    config, result_stats, responses_data, posts_data = load_simulation_from_path(
+        selected_sim["path"]
+    )
 
-def render_from_result(world, result: SimulationResult):
-    """从 SimulationResult 对象渲染"""
-
-    # 转换为数据格式
-    responses_data = []
-    for record in result.responses:
-        responses_data.append(
-            {
-                "step": record.step,
-                "user_id": record.user_id,
-                "user_persona": record.user_persona,
-                "response": {
-                    "first_reaction": record.response.first_reaction,
-                    "emotion": record.response.emotion,
-                    "impression_change": record.response.impression_change,
-                    "action": record.response.action.value,
-                    "content": record.response.content,
-                    "will_spread": record.response.will_spread,
-                    "is_negative": record.response.is_negative,
-                },
-            }
-        )
-
-    result_stats = {
-        "total_reach": result.total_reach,
-        "steps_run": result.steps_run,
-        "total_posts": len(result.posts),
-        "spreading_posts": len(result.get_spreading_posts()),
-        "action_counts": result.get_action_counts(),
-        "emotion_counts": result.get_emotion_counts(),
-        "negative_count": len(result.get_negative_responses()),
-    }
-
-    config = {"test_content": result.posts[0].content if result.posts else ""}
-
-    posts_data = [
-        {
-            "post_id": p.post_id,
-            "author_id": p.author_id,
-            "content": p.content,
-            "post_type": p.post_type.value,
-            "timestamp": p.timestamp,
-        }
-        for p in result.posts
-    ]
+    # 显示当前查看的模拟
+    st.markdown(f"**模拟 ID:** `{selected_sim['sim_id']}`")
+    st.markdown(f"**测试内容:** {config['test_content']}")
+    st.divider()
 
     render_from_data(world, config, result_stats, responses_data, posts_data)
 
@@ -115,6 +71,26 @@ def render_from_data(
     world, config: dict, result_stats: dict, responses_data: list, posts_data: list
 ):
     """从数据渲染分析页面"""
+
+    # 使用 tabs 组织内容
+    tab_overview, tab_network, tab_details = st.tabs(
+        ["📊 数据分析", "🕸️ 网络可视化", "💬 反应详情"]
+    )
+
+    with tab_overview:
+        render_overview_tab(world, config, result_stats, responses_data, posts_data)
+
+    with tab_network:
+        render_network_tab(world, posts_data, responses_data)
+
+    with tab_details:
+        render_details_tab(world, responses_data)
+
+
+def render_overview_tab(
+    world, config: dict, result_stats: dict, responses_data: list, posts_data: list
+):
+    """渲染数据分析 tab"""
 
     # ===== 总览指标 =====
     st.subheader("总览指标")
@@ -130,8 +106,6 @@ def render_from_data(
     with col2:
         st.metric("传播帖子", result_stats.get("spreading_posts", 0))
     with col3:
-        # 负面率颜色
-        delta_color = "inverse" if negative_rate > 0.2 else "normal"
         st.metric("负面率", f"{negative_rate:.1%}")
     with col4:
         st.metric("运行步数", result_stats["steps_run"])
@@ -141,14 +115,12 @@ def render_from_data(
     # ===== 时间演化 =====
     st.subheader("📈 时间演化")
 
-    # 按 step 聚合数据
     step_stats = aggregate_by_step(responses_data, result_stats["steps_run"])
 
     if step_stats:
         col1, col2 = st.columns(2)
 
         with col1:
-            # 负面率趋势
             fig_neg = px.line(
                 step_stats,
                 x="step",
@@ -164,7 +136,6 @@ def render_from_data(
             st.plotly_chart(fig_neg, use_container_width=True)
 
         with col2:
-            # 累计触达
             fig_reach = px.line(
                 step_stats,
                 x="step",
@@ -178,7 +149,6 @@ def render_from_data(
         col3, col4 = st.columns(2)
 
         with col3:
-            # 每步触达
             fig_wave = px.bar(
                 step_stats,
                 x="step",
@@ -189,7 +159,6 @@ def render_from_data(
             st.plotly_chart(fig_wave, use_container_width=True)
 
         with col4:
-            # 每步传播数
             fig_spread = px.bar(
                 step_stats,
                 x="step",
@@ -207,7 +176,6 @@ def render_from_data(
     col1, col2 = st.columns(2)
 
     with col1:
-        # 行动分布
         action_counts = result_stats["action_counts"]
         action_df = pd.DataFrame(
             [{"行动": k, "数量": v} for k, v in action_counts.items()]
@@ -221,7 +189,6 @@ def render_from_data(
         st.plotly_chart(fig_action, use_container_width=True)
 
     with col2:
-        # 情绪分布 (Top 10)
         emotion_counts = result_stats["emotion_counts"]
         emotion_sorted = sorted(emotion_counts.items(), key=lambda x: -x[1])[:10]
         emotion_df = pd.DataFrame([{"情绪": k, "数量": v} for k, v in emotion_sorted])
@@ -259,7 +226,6 @@ def render_from_data(
         fig_persona.update_layout(yaxis_title="", xaxis_title="负面率")
         st.plotly_chart(fig_persona, use_container_width=True)
 
-        # 人群详细表格
         with st.expander("查看人群详细数据"):
             display_df = persona_df.copy()
             display_df["negative_rate"] = display_df["negative_rate"].apply(
@@ -278,9 +244,137 @@ def render_from_data(
             ]
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    st.divider()
 
-    # ===== 反应详情 =====
+def render_network_tab(world, posts_data: list, responses_data: list):
+    """渲染网络可视化 tab"""
+
+    st.subheader("🕸️ 网络与传播可视化")
+
+    # 加载网络数据
+    world_path = Path("data/worlds") / world.meta.world_id
+    try:
+        network_data, users_data = load_network_data(str(world_path))
+    except FileNotFoundError as e:
+        st.error(f"无法加载网络数据: {e}")
+        return
+
+    viz = NetworkVisualizer(network_data, users_data)
+
+    # 可视化选项
+    viz_type = st.radio(
+        "选择可视化类型",
+        ["传播过程", "传播树", "网络拓扑"],
+        horizontal=True,
+    )
+
+    col1, col2 = st.columns([3, 1])
+
+    with col2:
+        st.markdown("**图例**")
+        if viz_type == "传播过程":
+            st.markdown(
+                """
+            **节点颜色：**
+            - ⭐ 紫色星 - 品牌账号
+            - 🟢 绿色 - 传播用户
+            - 🔴 红色 - 负面反应
+            - 🟡 黄色 - 点赞
+            - ⚪ 灰色 - 忽略/其他
+
+            **边的类型：**
+            - ━━ 实线粗 - 转发/转评
+            - ┈┈ 虚线细 - 关注关系
+            """
+            )
+
+            # 步数选择
+            max_step = max(r["step"] for r in responses_data) if responses_data else 0
+            show_step = st.slider(
+                "显示到第几步",
+                min_value=0,
+                max_value=max_step,
+                value=max_step,
+                help="拖动查看传播过程的演化",
+            )
+
+            # 显示关注关系选项
+            show_follow = st.checkbox(
+                "显示关注关系", value=True, help="显示用户之间的关注关系（虚线）"
+            )
+        elif viz_type == "传播树":
+            st.markdown(
+                """
+            - ⭐ **紫色星** - 品牌发布
+            - 🟢 **绿色** - 转发
+            - 🔵 **蓝色** - 转发评论
+            - 🔴 **红色** - 负面反应
+            """
+            )
+        else:  # 网络拓扑
+            st.markdown(
+                """
+            - ⭐ **紫色星** - 品牌账号
+            - 🔴 **红色** - KOL
+            - 🟠 **橙色** - 活跃用户
+            - 🔵 **蓝色** - 普通用户
+            - ⚪ **灰色** - 沉默用户
+            """
+            )
+
+        show_labels = st.checkbox("显示标签", value=False)
+
+    with col1:
+        with st.spinner("生成可视化..."):
+            if viz_type == "传播过程":
+                html = viz.render_propagation(
+                    posts_data,
+                    responses_data,
+                    step=show_step,
+                    height="550px",
+                    show_labels=show_labels,
+                    show_follow_edges=show_follow,
+                )
+            elif viz_type == "传播树":
+                html = viz.render_propagation_tree(
+                    posts_data,
+                    responses_data,
+                    height="550px",
+                )
+            else:  # 网络拓扑
+                html = viz.render_network_topology(
+                    height="550px",
+                    show_labels=show_labels,
+                    physics=True,
+                )
+
+            components.html(html, height=600, scrolling=True)
+
+    # 传播统计
+    if viz_type == "传播过程":
+        st.divider()
+        st.subheader("📊 传播统计")
+
+        # 统计传播链
+        spread_posts = [
+            p for p in posts_data if p["post_type"] in ["forward", "forward_comment"]
+        ]
+        forward_count = sum(1 for p in spread_posts if p["post_type"] == "forward")
+        comment_count = sum(
+            1 for p in spread_posts if p["post_type"] == "forward_comment"
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("总传播帖子", len(spread_posts))
+        with col2:
+            st.metric("纯转发", forward_count)
+        with col3:
+            st.metric("转发评论", comment_count)
+
+
+def render_details_tab(world, responses_data: list):
+    """渲染反应详情 tab"""
+
     st.subheader("💬 反应详情")
 
     # 筛选器
@@ -288,18 +382,22 @@ def render_from_data(
 
     with col1:
         steps = sorted(set(r["step"] for r in responses_data))
-        selected_step = st.selectbox("Step", ["全部"] + steps)
+        selected_step = st.selectbox("Step", ["全部"] + steps, key="detail_step")
 
     with col2:
         personas = sorted(set(r["user_persona"] for r in responses_data))
-        selected_persona = st.selectbox("人群", ["全部"] + personas)
+        selected_persona = st.selectbox(
+            "人群", ["全部"] + personas, key="detail_persona"
+        )
 
     with col3:
-        selected_sentiment = st.selectbox("情感", ["全部", "负面", "非负面"])
+        selected_sentiment = st.selectbox(
+            "情感", ["全部", "负面", "非负面"], key="detail_sentiment"
+        )
 
     with col4:
         actions = sorted(set(r["response"]["action"] for r in responses_data))
-        selected_action = st.selectbox("行动", ["全部"] + actions)
+        selected_action = st.selectbox("行动", ["全部"] + actions, key="detail_action")
 
     # 筛选
     filtered = responses_data
@@ -317,10 +415,9 @@ def render_from_data(
     st.markdown(f"共 **{len(filtered)}** 条反应")
 
     # 显示反应卡片
-    for i, record in enumerate(filtered[:50]):  # 限制显示数量
+    for i, record in enumerate(filtered[:50]):
         resp = record["response"]
 
-        # 情感 emoji
         emoji = (
             "😠"
             if resp["is_negative"]
@@ -339,7 +436,6 @@ def render_from_data(
             if resp["content"]:
                 st.markdown(f"**发布内容:** {resp['content']}")
 
-            # 显示用户画像
             user = world.get_user(record["user_id"])
             if user:
                 st.divider()
