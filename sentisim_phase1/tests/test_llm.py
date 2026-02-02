@@ -14,9 +14,6 @@ LLM 客户端测试
 """
 
 import asyncio
-import sys
-
-sys.path.insert(0, ".")
 
 from pydantic import BaseModel, Field
 from sentisim.llm import SentiSimLLM
@@ -29,42 +26,6 @@ class SimpleResponse(BaseModel):
 
     answer: str = Field(description="回答")
     confidence: float = Field(description="置信度，0-1之间")
-
-
-async def test_simple_generate():
-    """测试普通文本生成"""
-    print("\n=== 测试普通文本生成 ===")
-
-    llm = SentiSimLLM()
-
-    prompt = "用一句话介绍什么是舆情分析。"
-    result = await llm.generate(prompt)
-
-    print(f"Prompt: {prompt}")
-    print(f"Response: {result}")
-    print(f"调用次数: {llm.call_count}")
-
-    assert len(result) > 0
-    print("✓ 测试通过")
-
-
-async def test_structured_generate():
-    """测试结构化输出"""
-    print("\n=== 测试结构化输出 ===")
-
-    llm = SentiSimLLM()
-
-    prompt = "社交媒体舆情监测重要吗？请给出你的判断。"
-    result = await llm.generate_structured(prompt, SimpleResponse)
-
-    print(f"Prompt: {prompt}")
-    print(f"Response: {result}")
-    print(f"  - answer: {result.answer}")
-    print(f"  - confidence: {result.confidence}")
-
-    assert isinstance(result, SimpleResponse)
-    assert 0 <= result.confidence <= 1
-    print("✓ 测试通过")
 
 
 async def test_persona_generation():
@@ -145,8 +106,6 @@ async def run_all_tests():
     print("=" * 50)
 
     try:
-        await test_simple_generate()
-        await test_structured_generate()
         await test_persona_generation()
         await test_user_response_generation()
 

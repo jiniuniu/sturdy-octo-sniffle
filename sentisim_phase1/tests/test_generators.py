@@ -14,24 +14,8 @@ sys.path.insert(0, ".")
 
 from sentisim.generators import PersonaGenerator, UserGenerator
 from sentisim.llm import SentiSimLLM
-from sentisim.models import BrandContext
 from sentisim.network import InfluenceAssigner, NetworkBuilder, NetworkTopology
-
-# 测试用的品牌上下文
-TEST_BRAND = BrandContext(
-    brand_name="XX饮料",
-    description="""
-        XX饮料是一家主打健康概念的饮品品牌，目标客群为18-35岁注重生活品质的年轻人。
-        品牌调性偏年轻、活力、健康。
-        历史上曾在2024年因代糖成分问题引发争议，后官方澄清但部分消费者仍有疑虑。
-        去年有过一次涨价，引发部分老用户不满。
-    """,
-    target_audience="""
-        主要是一二线城市的年轻白领和大学生，关注健康、热爱社交媒体，
-        对食品安全和成分比较敏感，价格敏感度中等，容易被KOL种草也容易被负面新闻劝退。
-    """,
-    sensitivity_topics=["食品安全", "添加剂/代糖", "价格", "虚假宣传"],
-)
+from tests.sample_inputs import DEFAULT_BRAND
 
 
 async def test_network_topology():
@@ -90,7 +74,7 @@ async def test_persona_generation():
     llm = SentiSimLLM()
     generator = PersonaGenerator(llm)
 
-    personas = await generator.generate(TEST_BRAND, count=6)
+    personas = await generator.generate(DEFAULT_BRAND, count=6)
 
     print(f"生成了 {len(personas)} 种人群类型:")
     total_proportion = 0
@@ -126,7 +110,7 @@ async def test_user_generation(topology: NetworkTopology, influence_levels, pers
             uid: topology.get_follower_count(uid) for uid in test_user_ids
         },
         follower_map={uid: topology.get_followers(uid) for uid in test_user_ids},
-        brand_context=TEST_BRAND,
+        brand_context=DEFAULT_BRAND,
         max_concurrent=3,
     )
 
