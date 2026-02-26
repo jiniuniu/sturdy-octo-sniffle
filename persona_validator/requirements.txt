@@ -1,0 +1,21 @@
+# LLM
+langchain-openai
+
+# Pipeline
+scipy
+numpy
+matplotlib
+qiniu-python-sdk  # 七牛云 SDK，未配置时不调用
+
+# Data
+pydantic
+pydantic-settings
+python-dotenv
+
+# Storage
+motor  # MongoDB 异步驱动（依赖 pymongo）
+pymongo
+
+# API
+fastapi
+uvicorn[standard]

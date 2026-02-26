@@ -140,12 +140,16 @@ def build_stats(matrix: EvaluationMatrix) -> ReportStats:
 # ── 图表工具 ───────────────────────────────────────────────────────────────────
 
 
-def _fig_to_base64(fig: plt.Figure) -> str:
+def _fig_to_bytes(fig: plt.Figure) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor=COLOR_BG)
     plt.close(fig)
     buf.seek(0)
-    return base64.b64encode(buf.read()).decode("utf-8")
+    return buf.read()
+
+
+def _fig_to_base64(fig: plt.Figure) -> str:
+    return base64.b64encode(_fig_to_bytes(fig)).decode("utf-8")
 
 
 def _fig_to_file(fig: plt.Figure, filename: str) -> str:
@@ -159,7 +163,7 @@ def _fig_to_file(fig: plt.Figure, filename: str) -> str:
 # ── 图表一：接受度分布（横向点状条形图）─────────────────────────────────────
 
 
-def chart_distribution(stats: ReportStats, save_file: bool = True) -> str:
+def chart_distribution(stats: ReportStats, save_file: bool = True) -> str | bytes:
     n = stats.n_personas
     scores = stats.scores
     labels = stats.persona_labels
@@ -201,13 +205,13 @@ def chart_distribution(stats: ReportStats, save_file: bool = True) -> str:
 
     if save_file:
         return _fig_to_file(fig, "chart_distribution.png")
-    return _fig_to_base64(fig)
+    return _fig_to_bytes(fig)
 
 
 # ── 图表二：维度相关性条形图 ──────────────────────────────────────────────────
 
 
-def chart_correlations(stats: ReportStats, save_file: bool = True) -> str:
+def chart_correlations(stats: ReportStats, save_file: bool = True) -> str | bytes:
     corrs = stats.correlations
     axes_names = [c["axis"] for c in corrs]
     values = [c["correlation"] for c in corrs]
@@ -253,13 +257,13 @@ def chart_correlations(stats: ReportStats, save_file: bool = True) -> str:
 
     if save_file:
         return _fig_to_file(fig, "chart_correlations.png")
-    return _fig_to_base64(fig)
+    return _fig_to_bytes(fig)
 
 
 # ── 图表三：三大障碍进度条 ────────────────────────────────────────────────────
 
 
-def chart_tpb_barriers(stats: ReportStats, save_file: bool = True) -> str:
+def chart_tpb_barriers(stats: ReportStats, save_file: bool = True) -> str | bytes:
     labels = [
         "认可这件事的价值\n（态度）",
         "身边人是否支持\n（社会影响）",
@@ -315,13 +319,13 @@ def chart_tpb_barriers(stats: ReportStats, save_file: bool = True) -> str:
 
     if save_file:
         return _fig_to_file(fig, "chart_tpb_barriers.png")
-    return _fig_to_base64(fig)
+    return _fig_to_bytes(fig)
 
 
 # ── 图表四：分维度接受度箱线图 ────────────────────────────────────────────────
 
 
-def chart_axis_breakdown(stats: ReportStats, save_file: bool = True) -> str:
+def chart_axis_breakdown(stats: ReportStats, save_file: bool = True) -> str | bytes:
     groups = stats.axis_score_groups
     n_axes = len(groups)
 
@@ -372,7 +376,7 @@ def chart_axis_breakdown(stats: ReportStats, save_file: bool = True) -> str:
 
     if save_file:
         return _fig_to_file(fig, "chart_axis_breakdown.png")
-    return _fig_to_base64(fig)
+    return _fig_to_bytes(fig)
 
 
 # ── Markdown 报告渲染 ─────────────────────────────────────────────────────────

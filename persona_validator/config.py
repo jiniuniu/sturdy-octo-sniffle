@@ -22,5 +22,24 @@ class Settings(BaseSettings):
     TPB_WEIGHT_SUBJECTIVE_NORM: float = 0.3
     TPB_WEIGHT_PERCEIVED_CONTROL: float = 0.3
 
+    # MongoDB
+    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_DB: str = "persona_validator"
+
+    # 七牛云（未配置时跳过图片上传）
+    QINIU_ACCESS_KEY: str = ""
+    QINIU_SECRET_KEY: str = ""
+    QINIU_BUCKET: str = ""
+    QINIU_DOMAIN: str = ""  # e.g. "https://cdn.example.com"
+
+    @property
+    def qiniu_configured(self) -> bool:
+        return bool(
+            self.QINIU_ACCESS_KEY
+            and self.QINIU_SECRET_KEY
+            and self.QINIU_BUCKET
+            and self.QINIU_DOMAIN
+        )
+
 
 settings = Settings()

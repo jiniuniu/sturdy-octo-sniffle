@@ -19,6 +19,7 @@ from pipeline.questionnaire_builder import build_questionnaire
 from pipeline.responder import simulate_responses
 from pipeline.sampler import sample_vectors
 from pipeline.scorer import compute_tpb_score
+from storage.job_repo import get_job_repo
 from utils.export import generate_report
 
 # ── 并行执行工具 ──────────────────────────────────────────────────────────────
@@ -64,14 +65,18 @@ async def run_validation_async(
     product: ProductInfo,
     n_personas: int | None = None,
     on_progress: Callable[[str], None] | None = None,
+    job_id: str | None = None,
 ) -> tuple[EvaluationMatrix, InsightReport]:
     """
     完整验证流程（异步版本，Stage 2b 和 Stage 3b 并行执行）。
+
+    job_id: 若提供，则在每个阶段完成后将中间数据持久化到 MongoDB。
 
     Returns:
         (matrix, report) — matrix 用于生成报告，report 包含 LLM 洞察文字
     """
     n = n_personas or settings.N_PERSONAS
+    repo = get_job_repo() if job_id else None
 
     def log(msg: str):
         if on_progress:
@@ -79,30 +84,40 @@ async def run_validation_async(
         else:
             print(msg)
 
+    async def persist(fields: dict) -> None:
+        if repo and job_id:
+            await repo.patch(job_id, fields)
+
     # Stage 1：具体化维度 + 语义标签（1次 LLM 调用）
     log(f"[1/5] 生成维度语义标签...")
     axes = build_axes(product)
+    await persist({"axes": axes.model_dump()})
 
     # Stage 2a：均匀采样（无 LLM）
     log(f"[2/5] Sobol 采样 {n} 个向量...")
     vectors = sample_vectors(axes, n=n)
+    await persist({"vectors": [v.model_dump() for v in vectors]})
 
     # Stage 2b：并行生成人物描述（n 次 LLM 调用）
     log(f"[3/5] 并行生成 {n} 个 persona 描述...")
     profiles = await _generate_personas_async(vectors, axes, product)
+    await persist({"personas": [p.model_dump() for p in profiles]})
 
     # Stage 3a：生成问卷（1次 LLM 调用，所有 persona 共用）
     log(f"[4/5] 生成 TPB 问卷...")
     questionnaire = build_questionnaire(product, profiles[0].behavior_goal)
+    await persist({"questionnaire": questionnaire.model_dump()})
 
     # Stage 3b + 4a：并行问卷回答 + 打分（n 次 LLM 调用）
     log(f"[5/5] 并行模拟 {n} 个 persona 回答问卷并打分...")
     evaluations = await _simulate_all_async(profiles, questionnaire)
+    await persist({"evaluations": [e.model_dump() for e in evaluations]})
 
     # Stage 4b：生成洞察报告（1次 LLM 调用）
     log("生成洞察报告...")
     matrix = EvaluationMatrix(product=product, evaluations=evaluations)
     report = generate_insights(matrix)
+    await persist({"insights": report.model_dump()})
 
     return matrix, report
 
