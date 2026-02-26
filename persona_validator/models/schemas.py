@@ -14,6 +14,46 @@ PREDEFINED_AXIS_NAMES = [
     "网络效应潜力",
 ]
 
+# 五大业务维度定义（轴索引、业务问题、最相关 TPB 维度）
+# 竞争护城河合并了「竞争防御能力」和「网络效应潜力」两个轴
+BUSINESS_DIMENSIONS: list[dict] = [
+    {
+        "name": "验证外部环境",
+        "question": "现在进入市场时机成熟吗？",
+        "axis_indices": [0],
+        "axis_names": ["外部时机成熟度"],
+        "key_tpb": "attitude",
+    },
+    {
+        "name": "需求真实性",
+        "question": "这是真实痛点还是伪需求？",
+        "axis_indices": [1],
+        "axis_names": ["问题真实度（伪需求风险）"],
+        "key_tpb": "attitude",
+    },
+    {
+        "name": "迁移成本",
+        "question": "用户从现有方案切换过来容易吗？",
+        "axis_indices": [2],
+        "axis_names": ["用户切换成本"],
+        "key_tpb": "perceived_control",
+    },
+    {
+        "name": "商业模式",
+        "question": "用户愿意为这个价值付费吗？",
+        "axis_indices": [3],
+        "axis_names": ["变现可行性"],
+        "key_tpb": "attitude",
+    },
+    {
+        "name": "竞争护城河",
+        "question": "产品有没有持续的竞争优势？",
+        "axis_indices": [4, 5],
+        "axis_names": ["竞争防御能力", "网络效应潜力"],
+        "key_tpb": "subjective_norm",
+    },
+]
+
 
 # ── 用户输入 ───────────────────────────────────────────────────────────────────
 
@@ -158,20 +198,46 @@ class EvaluationMatrix(BaseModel):
 
 
 # ── Stage 4b 输出：洞察报告 ───────────────────────────────────────────────────
-# LLM 根据数值分析结果生成自然语言洞察
-# top_correlations 由 insight_engine.py 通过 model_copy 注入
+
+
+class DimensionInsight(BaseModel):
+    """五大业务维度中单个维度的完整洞察。统计字段由 pipeline 计算注入，文字字段由 LLM 生成。"""
+
+    dimension_name: str = Field(description="业务维度名称，如'需求真实性'")
+    business_question: str = Field(description="该维度对应的业务问题")
+    axis_names: list[str] = Field(description="对应的原始轴名称（可能多个）")
+
+    # 统计字段（pipeline 计算注入）
+    correlation: float = Field(description="轴值与接受度的 Spearman 相关系数，多轴取平均")
+    pvalue: float = Field(description="相关系数的 p 值")
+    label_means: dict[str, float] = Field(
+        description="各标签层级的接受度均值，key 为 'L1'~'L4'"
+    )
+    key_tpb_barrier: str = Field(
+        description="与该维度最相关的 TPB 障碍：attitude / subjective_norm / perceived_control"
+    )
+    signal: Literal["验证通过", "需关注", "风险较高", "数据噪声"] = Field(
+        description="信号强度：由统计量自动计算，不由 LLM 生成"
+    )
+
+    # 文字字段（LLM 生成）
+    finding: str = Field(description="基于数据的业务发现，2句：第1句描述现象，第2句给出判断")
+    recommendation: str = Field(description="下一步最该做的一个具体验证动作，1句话")
 
 
 class InsightReport(BaseModel):
-    top_correlations: list[dict] = Field(
+    # 五大业务维度各一条，由 insight_engine 计算后注入
+    dimension_insights: list[DimensionInsight] = Field(
         default_factory=list,
-        description="由 pipeline 注入，相关系数最高的3个维度",
+        description="五大业务维度的完整洞察，由 pipeline 注入",
     )
+
+    # 以下字段由 LLM 生成
     ideal_persona_description: str = Field(
         description="高接受度用户的共同特征，自然语言描述"
     )
     dead_zone_description: str = Field(
-        description="低接受度用户的共同特征，自然语言描述"
+        description="低接受度用户的共同特征及卡点分析，自然语言描述"
     )
     key_risks: list[str] = Field(
         min_length=3,

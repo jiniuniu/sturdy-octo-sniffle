@@ -34,23 +34,28 @@ def upload_charts(matrix, report, job_id: str) -> dict[str, str]:
 
     from utils.export import (
         build_stats,
-        chart_axis_breakdown,
-        chart_correlations,
+        chart_dimension_matrix,
         chart_distribution,
+        chart_label_means,
         chart_tpb_barriers,
     )
 
     stats = build_stats(matrix)
-    chart_fns = {
-        "distribution": chart_distribution,
-        "correlations": chart_correlations,
-        "barriers": chart_tpb_barriers,
-        "breakdown": chart_axis_breakdown,
+
+    # stats 参数的图表
+    stats_charts = {
+        "distribution": (chart_distribution, stats),
+        "barriers":     (chart_tpb_barriers, stats),
+    }
+    # report 参数的图表（需要 DimensionInsight 数据）
+    report_charts = {
+        "dimension_matrix": (chart_dimension_matrix, report),
+        "label_means":      (chart_label_means, report),
     }
 
     urls: dict[str, str] = {}
-    for name, fn in chart_fns.items():
-        png_bytes: bytes = fn(stats, save_file=False)
+    for name, (fn, arg) in {**stats_charts, **report_charts}.items():
+        png_bytes: bytes = fn(arg, save_file=False)
         key = f"{job_id}/{name}.png"
         urls[name] = upload_bytes(png_bytes, key)
 

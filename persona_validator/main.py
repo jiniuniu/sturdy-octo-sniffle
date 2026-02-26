@@ -165,10 +165,10 @@ if __name__ == "__main__":
     print(report.summary)
 
     print("\n" + "=" * 60)
-    print("相关性 Top 3")
+    print("五大业务维度")
     print("=" * 60)
-    for c in report.top_correlations:
-        print(f"  {c['axis']}：{c['correlation']:+.3f}")
+    for di in report.dimension_insights:
+        print(f"  [{di.signal}] {di.dimension_name}（r={di.correlation:+.3f}）：{di.finding[:40]}…")
 
     # ── 保存完整报告 ──────────────────────────────────────────────────────────
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
