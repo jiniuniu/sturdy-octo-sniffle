@@ -1,6 +1,6 @@
 # 消费者行为研究框架
 
-## 设计文档 v0.2
+## 设计文档 v0.3
 
 ---
 
@@ -126,8 +126,16 @@ Y_i ∈ [0, 1]                ← persona i 的 outcome 评分
                    │
                    ▼
 ┌────────────────────────────────────────────────────┐
+│  Step 1.5  问卷生成（整个研究只做1次）              │
+│  LLM 生成 12道 TPB 问卷（4题×3维度）               │
+│  问卷与所有 persona 共用，固定不变                  │
+└──────────────────┬─────────────────────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────────────────────┐
 │  Step 2  初始种群生成                               │
-│  Sobol 采样 → N₀ 个 Persona（含 narrative + Y）    │
+│  Sobol 采样 → N₀ 个 Persona（narrative）           │
+│  每个 persona 作答问卷 → 纯计算得 Y                │
 └──────────────────┬─────────────────────────────────┘
                    │
                    ▼
@@ -145,7 +153,7 @@ Y_i ∈ [0, 1]                ← persona i 的 outcome 评分
 │               │                              │     │
 │               ▼                              │     │
 │  ┌─────────────────────────────────┐         │     │
-│  │ 评估新 persona 的 Y              │         │     │
+│  │ 新 persona 作答同一份问卷 → Y    │         │     │
 │  │ 尝试放入 Archive 对应 cell       │         │     │
 │  └────────────┬────────────────────┘         │     │
 │               │                              │     │
@@ -437,7 +445,175 @@ try_insert(persona, cell):
 
 ---
 
-## 5. 核心数据结构
+## 5. Y 评估机制：问卷方式
+
+### 5.1 为什么用问卷而不是直接打分
+
+最直觉的 Y 评估方式是：把 persona 描述给 LLM，让它直接输出一个 0~1 的 TPB 分数。这样做有两个根本缺陷：
+
+**缺陷一：抽象数值缺乏锚定**
+"请给这个人的用药依从态度打 0~1 分"——LLM 没有稳定的参照系，同一个 persona 在不同调用中可能得到差异较大的分数。
+
+**缺陷二：推理过程不可检查**
+直接输出的数值无法追溯"为什么是这个分数"，无法区分是 Attitude 不足还是 PBC 不足，失去了 TPB 的诊断价值。
+
+**问卷方式的优势**：
+- 每道题是具体的行为陈述（"我觉得按时服药对控制病情有明显帮助"），语义锚定更强，LLM 回答更稳定
+- persona 以角色扮演方式作答，而非元层面地"评估自己"，更符合 LLM 的能力边界
+- 每题有推理文本记录，可以事后检查哪道题驱动了哪个分项
+- 问卷固定，所有 persona 用同一把尺子量，跨 persona 比较有效
+
+### 5.2 问卷生成（Step 1.5，整个研究只做1次）
+
+**输入：** `ResearchSpec`（scenario + outcome_y + population）
+
+**输出：** 一份包含 12 道题的 TPB 问卷，每个维度 4 题，其中至少 1 题为反向计分题
+
+```
+问卷结构：
+
+Attitude（q01~q04）
+  · 考察：persona 对"执行目标行为"的评价性态度
+  · 不是对产品的喜好，而是对行为本身的价值判断
+  · 反向题示例："我觉得每天按时吃药太麻烦了，不值得这么做"
+
+Subjective Norm（q05~q08）
+  · 考察：persona 感知到的重要他人的期待和社会压力
+  · 示例："我的家人很希望我能按时按量服药"
+  · 示例："我的主治医生非常强调坚持用药的重要性"
+
+Perceived Behavioral Control（q09~q12）
+  · 考察：persona 对自己能否完成该行为的信心和控制感
+  · 示例："我觉得自己能养成每天按时服药的习惯"
+  · 反向题示例："我经常因为忘记而漏服药，觉得自己很难坚持"
+```
+
+**题目生成的约束：**
+
+| 约束 | 说明 |
+|------|------|
+| 第一人称 | 所有题目用"我"开头，符合 persona 角色扮演的语境 |
+| 行为导向 | 围绕 outcome_y 对应的具体行为，而非对产品的抽象评价 |
+| 符合人群 | 语言风格匹配 population（40~65岁慢病患者 → 口语化，不用技术词汇） |
+| 反向题分布 | 每个维度至少1道，防止 yes-saying 偏差 |
+| 独立性 | 各题测量不同侧面，不重复 |
+
+### 5.3 Persona 作答（每个 persona 独立，LLM 角色扮演）
+
+每个 persona 收到同一份问卷，LLM 扮演该 persona 逐题作答：
+
+```
+Prompt 结构：
+─────────────────────────────────────────────────────────
+你是以下这个人：
+
+{persona.narrative}
+
+请以这个人的身份，对下面每道题用 1~5 分作答：
+  1 = 完全不同意
+  2 = 比较不同意
+  3 = 一般
+  4 = 比较同意
+  5 = 完全同意
+
+要求：
+- 完全保持角色，不要跳出角色说"作为 AI"
+- 回答要反映这个人的真实处境和心理，低分就给低分
+- 每题附一句话说明你为什么这样评分
+
+题目：
+q01 [态度] 我觉得按时按量服药对控制病情有明显帮助
+q02 [态度] 坚持用药是我愿意为健康付出的事情
+q03 [态度-反向] 我觉得每天记着吃药太麻烦了，不值得
+q04 [态度] 用 App 提醒我吃药，能让我觉得更安心
+q05 [社会规范] 我的家人很希望我能坚持按时服药
+...（共12题）
+─────────────────────────────────────────────────────────
+```
+
+**输出示例（节选）：**
+
+```json
+{
+  "q01": {"score": 4, "reasoning": "知道血压不控制会有风险，但有时候觉得症状不明显就忘了"},
+  "q03": {"score": 4, "reasoning": "确实嫌麻烦，有时候出门忘带药就算了"},
+  "q05": {"score": 2, "reasoning": "老伴不太管我这些，孩子在外地，没人特别督促"}
+}
+```
+
+### 5.4 Y 值计算（纯数学，不再调用 LLM）
+
+```python
+def compute_y(response: QuestionnaireResponse,
+              questionnaire: Questionnaire,
+              tpb_weights: dict[str, float]) -> TPBScores:
+
+    scores_by_dim = {"attitude": [], "social_norm": [], "pbc": []}
+
+    for item in questionnaire.items:
+        raw = response.responses[item.id].score          # 1~5
+        # 反向题处理
+        adjusted = (6 - raw) if item.reverse_scored else raw
+        # 归一化到 [0, 1]
+        normalized = (adjusted - 1) / 4.0
+        scores_by_dim[item.tpb_dimension].append(normalized)
+
+    attitude    = mean(scores_by_dim["attitude"])        # [0, 1]
+    social_norm = mean(scores_by_dim["social_norm"])     # [0, 1]
+    pbc         = mean(scores_by_dim["pbc"])             # [0, 1]
+
+    intention = (
+        tpb_weights["attitude"]    * attitude +
+        tpb_weights["social_norm"] * social_norm +
+        tpb_weights["pbc"]         * pbc
+    )
+
+    return TPBScores(
+        attitude=attitude,
+        social_norm=social_norm,
+        pbc=pbc,
+        intention=intention,          # 即最终 Y 值
+    )
+```
+
+**默认权重**（来自领域模板，可被场景覆盖）：
+
+| 领域 | Attitude | Social Norm | PBC |
+|------|----------|-------------|-----|
+| `healthcare` | 0.30 | 0.35 | 0.35 |
+| `consumer_tech` | 0.40 | 0.30 | 0.30 |
+| `general` | 0.40 | 0.30 | 0.30 |
+
+### 5.5 每次变异的评估成本
+
+MAP-Elites 进化循环中，每产生一个新 persona 需要：
+
+```
+1次 LLM 调用：narrative 生成（或叙事改写）
+1次 LLM 调用：persona 作答 12道问卷（12题打包为单次调用）
+0次 LLM 调用：Y 值计算（纯数学）
+
+合计：2次 LLM 调用 / 新 persona
+```
+
+问卷生成只在研究开始时做 1次，之后固定复用，不计入变异成本。
+
+### 5.6 问卷质量的影响
+
+问卷本身由 LLM 生成，存在质量风险，需要在 Step 1.5 之后做验证：
+
+| 验证项 | 检查方法 |
+|--------|----------|
+| 维度纯净性 | 每题只属于一个 TPB 维度，LLM 判断是否混入了其他维度的内容 |
+| 行为聚焦 | 题目围绕 outcome_y 的具体行为，而非对产品的整体印象 |
+| 反向题自然性 | 反向题读起来是真实的负面陈述，而非机械地加"不" |
+| 人群匹配 | 语言风格符合 population 描述（年龄、教育程度、文化背景） |
+
+若验证不通过，重新生成问卷（最多3次），之后锁定不再更改。
+
+---
+
+## 6. 核心数据结构
 
 ### 5.1 输入层
 
@@ -478,7 +654,34 @@ class DimensionAxis(BaseModel):
     y_correlation_prior: float        # 理论预期与 Y 的相关方向，-1 或 +1
 ```
 
-### 5.3 合成 Persona
+### 6.3 问卷结构
+
+```python
+class QuestionnaireItem(BaseModel):
+    id: str                           # "q01" ~ "q12"
+    tpb_dimension: Literal["attitude", "social_norm", "pbc"]
+    question_text: str                # 第一人称陈述句，符合目标人群语言风格
+    reverse_scored: bool              # 是否反向计分
+
+
+class Questionnaire(BaseModel):
+    research_spec_id: str             # 关联的 ResearchSpec
+    behavior_goal: str                # 问卷聚焦的具体行为目标
+    items: list[QuestionnaireItem]    # 固定12题：attitude×4, social_norm×4, pbc×4
+    # 问卷在 Step 1.5 生成后锁定，整个研究复用
+
+
+class SingleResponse(BaseModel):
+    score: int                        # 1~5（Likert 量表）
+    reasoning: str                    # persona 的作答理由（1~2句）
+
+
+class QuestionnaireResponse(BaseModel):
+    persona_id: str
+    responses: dict[str, SingleResponse]  # {"q01": SingleResponse, ...}
+```
+
+### 6.4 合成 Persona
 
 ```python
 class Persona(BaseModel):
@@ -491,22 +694,22 @@ class Persona(BaseModel):
     narrative: str                    # LLM 生成的人物叙事文本（150~300字）
     narrative_quality_score: float    # 叙事与维度值的一致性评分，[0, 1]
 
-    tpb_scores: TPBScores
-    y_value: float                    # 最终 outcome_y 评分，[0, 1]
-    y_reasoning: str                  # LLM 的推理摘要（1~3句）
+    questionnaire_response: QuestionnaireResponse  # 问卷作答记录
+    tpb_scores: TPBScores             # 由作答结果计算得出，无需额外 LLM 调用
+    y_value: float                    # = tpb_scores.intention，最终 Y 值
 
     cell_id: str                      # 在 Archive 中所属 cell
 
 
 class TPBScores(BaseModel):
-    attitude: float                   # 对采纳行为的评价性态度，[0, 1]
-    social_norm: float                # 感知到的社会压力/支持，[0, 1]
-    pbc: float                        # 感知行为控制，[0, 1]
-    intention: float                  # 加权意向分，[0, 1]
-    friction: float                   # 摩擦系数（阻力），越高越大
+    attitude: float                   # Attitude 维度均值，[0, 1]
+    social_norm: float                # Subjective Norm 维度均值，[0, 1]
+    pbc: float                        # Perceived Behavioral Control 均值，[0, 1]
+    intention: float                  # 加权汇总 = Y 值，[0, 1]
+    # 注：无 friction 字段，摩擦效应通过 pbc 低分和反向题自然体现
 ```
 
-### 5.4 Archive
+### 6.5 Archive
 
 ```python
 class ArchiveCell(BaseModel):
@@ -539,7 +742,7 @@ class CoverageStats(BaseModel):
     max_cell_count: int
 ```
 
-### 5.5 归因结果
+### 6.6 归因结果
 
 ```python
 class AttributionResult(BaseModel):
@@ -598,9 +801,9 @@ class Recommendation(BaseModel):
 
 ---
 
-## 6. 流转逻辑
+## 7. 流转逻辑
 
-### 6.1 Step 0：自然语言 → 研究规范
+### 7.1 Step 0：自然语言 → 研究规范
 
 ```
 输入：自然语言描述
@@ -635,7 +838,7 @@ LLM 任务：
     注：同时建议运行 barrier_analysis（了解阻力来源对产品更有价值）
 ```
 
-### 6.2 Step 1：维度生成
+### 7.2 Step 1：维度生成
 
 ```
 输入：ResearchSpec + DomainTemplate
@@ -656,27 +859,50 @@ LLM 任务：
 输出：List[DimensionAxis]（通常 5~8 个）
 ```
 
-### 6.3 Step 2：初始种群生成
+### 7.3 Step 1.5：问卷生成
 
 ```
-输入：List[DimensionAxis]，n_initial
+输入：ResearchSpec（scenario + outcome_y + population）
+
+流程：
+  1. LLM 根据 outcome_y 识别对应的具体行为目标（behavior_goal）
+     例："患者用药依从意愿" → "坚持按时按量服药，不自行停药或减量"
+  2. LLM 生成 12 道 TPB 问卷题（4题×3维度）：
+     · 第一人称陈述句，语言匹配 population
+     · 每个维度至少1道反向计分题
+     · 题目聚焦行为本身，不涉及 scenario 产品的主观评价
+  3. 验证：维度纯净性、反向题自然性、人群匹配度
+     · 不通过则重新生成（最多3次）
+  4. 锁定问卷，后续所有 persona 共用
+
+输出：Questionnaire（整个研究唯一，固定不变）
+成本：1次 LLM 调用
+```
+
+### 7.4 Step 2：初始种群生成
+
+```
+输入：List[DimensionAxis]，Questionnaire，n_initial
 
 流程：
   1. Sobol 序列在 D 维 [0,1]^D 空间生成 n_initial 个采样点
-  2. 对每个采样点，LLM 生成 persona：
+  2. 对每个采样点，LLM 生成 persona narrative（N₀次并行调用）：
      · 输入：各维度取值 + 低端/高端锚点参考
-     · 输出：narrative（150~300字）+ 维度值确认
-  3. 一致性检查：LLM 判断 narrative 是否与 dimension_values 一致
+     · 输出：narrative（150~300字）
+  3. 一致性检查：narrative 是否与 dimension_values 一致
      · 不一致则重新生成（最多3次）
-  4. 对每个 persona 评估 Y（TPB 推理）
-  5. 初始化 Archive，将所有 persona 按 Y 值放入对应 cell
+  4. 每个 persona 作答问卷（N₀次并行调用）：
+     · LLM 扮演 persona 对 12道题打 1~5 分 + 推理
+  5. 纯数学计算 TPBScores → Y 值（无额外 LLM 调用）
+  6. 初始化 Archive，按 Y 值放入对应 cell
 
 输出：初始 Archive（覆盖不均匀，待进化循环填充）
+成本：n_initial × 2次 LLM 调用（narrative + 问卷作答）
 ```
 
-### 6.4 Step 3：MAP-Elites 进化循环
+### 7.5 Step 3：MAP-Elites 进化循环
 
-详见第 4 节，核心逻辑：
+详见第 4 节，核心逻辑（Y 评估改为问卷作答）：
 
 ```
 while not archive.is_satisfied() and gen < max_generations:
@@ -684,12 +910,15 @@ while not archive.is_satisfied() and gen < max_generations:
     for cell in sparse_cells:
         parent = archive.select_parent(cell, strategy)
         child  = mutate(parent, cell.y_range, mutation_type)
-        child.y_value = evaluate_y(child)
+        # Y 评估：问卷作答（1次 LLM）+ 纯数学计算
+        child.questionnaire_response = answer_questionnaire(child, questionnaire)
+        child.tpb_scores = compute_tpb(child.questionnaire_response, questionnaire)
+        child.y_value    = child.tpb_scores.intention
         archive.try_insert(child)
     gen += 1
 ```
 
-### 6.5 Step 4：归因分析
+### 7.6 Step 4：归因分析
 
 ```
 输入：Archive（满足覆盖条件的 persona 库）
@@ -722,7 +951,7 @@ while not archive.is_satisfied() and gen < max_generations:
 
 ---
 
-## 7. 端到端示例（医疗 App 场景）
+## 8. 端到端示例（医疗 App 场景）
 
 ### 输入
 
@@ -741,7 +970,7 @@ domain:     "healthcare"
 purpose:    "target_identification"
 ```
 
-### Step 1 生成的 7 个维度
+### Step 0 → Step 1 生成的 7 个维度
 
 ```
 D1 疾病感知严重性
@@ -771,6 +1000,63 @@ D6 副作用感知强度
 D7 经济约束强度
    低端："医疗费用占比高，会因费用减少用药"
    高端："经济压力小，费用不影响用药决策"
+```
+
+### Step 1.5 生成的问卷（节选）
+
+```
+behavior_goal: "坚持每天按时按量服药，不自行停药或减量"
+
+q01 [态度]       我觉得按时服药对控制血压/血糖有明显帮助
+q02 [态度]       坚持用药是我愿意为自己健康做的事
+q03 [态度-反向]  我觉得每天记着吃药太麻烦了，不值得这么坚持
+q04 [态度]       用手机 App 提醒我吃药，能让我觉得更踏实
+
+q05 [社会规范]   我的家人非常希望我能坚持按时服药
+q06 [社会规范]   我的医生很强调坚持用药的重要性，我不想让他失望
+q07 [社会规范-反] 周围很少有人像我这样认真对待每天吃药这件事
+q08 [社会规范]   如果我漏服药，家人会担心，我不想让他们操心
+
+q09 [PBC]        我相信自己能养成每天定时服药的习惯
+q10 [PBC]        就算出门在外，我也有办法记得按时吃药
+q11 [PBC-反向]   我经常因为忘记或嫌麻烦而漏服药，很难改掉这个习惯
+q12 [PBC]        用 App 提醒的话，我觉得自己完全能做到按时用药
+```
+
+### Step 2 示例：Persona P_042 的问卷作答
+
+```
+P_042 基本特征（维度值）：
+  D1 疾病感知严重性: 0.85  D4 家庭督促环境: 0.28
+  D2 医患信任度:    0.18  D5 数字工具接受度: 0.12
+  D3 用药习惯稳定性: 0.60  D6 副作用感知: 0.72
+
+Narrative：
+  "老陈，62岁，退休工人，有高血压十多年了。曾经因血压飙升住过一次院，
+   从那以后知道要吃药，但觉得医生就是例行公事，不怎么信那套。平时一个
+   人住，孩子在外地，没人管。手机主要用来打电话和发语音，装了个微信也
+   只是偶尔看看，对 App 没什么兴趣，觉得捣鼓这些费事。担心长期吃降压
+   药对肾不好，有时候血压正常了就自己停几天。"
+
+问卷作答：
+  q01: 4分 "住过院之后知道不吃药不行"
+  q02: 3分 "知道是应该坚持，但有时候就算了"
+  q03: 4分 "确实烦，出门忘带就忘了"
+  q04: 1分 "不想装这些 App，不会用"
+  q05: 2分 "孩子在外地，老伴不太管这些"
+  q06: 2分 "医生就是走程序的，说了也就那样"
+  q07: 3分 "也不知道别人咋样，反正我不太行"
+  q08: 2分 "家里没人特别在乎"
+  q09: 3分 "以前能坚持一段时间，就是容易忘"
+  q10: 2分 "出门经常忘带药"
+  q11: 4分 "确实经常忘，尤其是感觉没症状的时候"
+  q12: 1分 "根本不会用这种 App"
+
+TPB 得分（纯数学计算）：
+  Attitude    = mean([4,3,2,1]) / 4 = 0.50  ← q03反向: 6-4=2
+  Social Norm = mean([2,2,3,2]) / 4 = 0.31  ← q07反向: 6-3=3
+  PBC         = mean([3,2,2,1]) / 4 = 0.25  ← q11反向: 6-4=2
+  Y = 0.30×0.50 + 0.35×0.31 + 0.35×0.25 = 0.15 + 0.11 + 0.09 = 0.35
 ```
 
 ### Step 3 进化过程示意
@@ -826,7 +1112,7 @@ D7 经济约束强度
 
 ---
 
-## 8. 目录结构
+## 9. 目录结构
 
 ```
 consumer_research/
@@ -857,12 +1143,14 @@ consumer_research/
 │       ├── pipeline/                        # 主流程各步骤
 │       │   ├── normalizer.py              # Step 0：自然语言 → ResearchSpec
 │       │   ├── dim_generator.py           # Step 1：维度生成
+│       │   ├── questionnaire_builder.py   # Step 1.5：TPB 问卷生成与验证
 │       │   ├── persona_generator.py       # Step 2：初始种群生成
-│       │   ├── map_elites.py              # Step 3：MAP-Elites 进化循环
+│       │   ├── map_elites/                # Step 3：MAP-Elites 进化循环
+│       │   │   ├── __init__.py
 │       │   │   ├── archive.py             #   Archive 管理
 │       │   │   ├── selection.py           #   亲本选择策略
 │       │   │   └── mutation.py            #   变异算子（numeric/narrative/crossover）
-│       │   ├── y_evaluator.py             # Y 值评估（TPB 推理）
+│       │   ├── y_evaluator.py             # 问卷作答 + TPB 纯数学计算
 │       │   └── analyzer.py                # Step 4：归因分析
 │       │
 │       ├── llm/                             # LLM 调用封装
@@ -870,10 +1158,11 @@ consumer_research/
 │       │   ├── prompts/                    # Prompt 模板（Jinja2）
 │       │   │   ├── normalize.jinja2       # Step 0
 │       │   │   ├── dim_generate.jinja2    # Step 1
-│       │   │   ├── persona_narrative.jinja2  # 初始 narrative 生成
-│       │   │   ├── mutation_numeric.jinja2   # 数值变异后的 narrative 重写
-│       │   │   ├── mutation_narrative.jinja2 # 叙事改写变异
-│       │   │   └── y_evaluate.jinja2      # TPB Y 值评估
+│       │   │   ├── questionnaire_build.jinja2  # Step 1.5：生成12道题
+│       │   │   ├── persona_narrative.jinja2    # Step 2：初始 narrative 生成
+│       │   │   ├── questionnaire_answer.jinja2 # Step 2/3：persona 作答问卷
+│       │   │   ├── mutation_numeric.jinja2     # Step 3：数值变异后 narrative 重写
+│       │   │   └── mutation_narrative.jinja2   # Step 3：叙事改写变异
 │       │   └── cache.py                   # 调用缓存（SQLite）
 │       │
 │       ├── sampling/
@@ -894,8 +1183,9 @@ consumer_research/
 │       └── {experiment_id}/
 │           ├── research_spec.json
 │           ├── dimensions.json
+│           ├── questionnaire.json         # 本次研究的固定问卷
 │           ├── archive/
-│           │   ├── personas.json          # 全量 persona 数据
+│           │   ├── personas.json          # 全量 persona 数据（含问卷作答）
 │           │   └── evolution_log.json     # 每代 Coverage 变化
 │           └── attribution_report.md
 │
@@ -909,7 +1199,7 @@ consumer_research/
 
 ---
 
-## 9. 设计决策记录
+## 10. 设计决策记录
 
 | 决策 | 选择 | 理由 | 放弃的选项 |
 |------|------|------|-----------|
@@ -918,7 +1208,8 @@ consumer_research/
 | **变异算子** | 三种并存（数值/叙事/交叉），按比例采样 | 不同算子适合不同搜索阶段，组合更鲁棒 | 只用数值变异（忽视语义层面的 persona 改写能力） |
 | **维度生成** | 领域模板骨架 + LLM 特化 | 可靠性 + 灵活性平衡 | 纯 LLM 生成（正交性不稳定）；纯固定模板（扩展性差） |
 | **适应度定义** | narrative 质量分（而非 Y 值本身） | 目标是覆盖 Y 空间，而非最大化 Y；质量分防止低质量 persona 占据 cell | 以 Y 值为适应度（会导致所有 persona 趋向极端 Y 值） |
-| **Y 评估框架** | TPB（三要素 + 摩擦） | 理论成熟、可解释、分项评分可直接用于诊断 TPB 瓶颈 | 直接让 LLM 给出 Y 评分（不可解释，无分项） |
+| **Y 评估方式** | LLM 生成问卷 → persona 作答 → 纯数学计算 | 具体题目锚定 LLM 输出，比直接打分稳定；每题推理可追溯；问卷固定保证跨 persona 可比性 | 直接让 LLM 输出 0~1 分（无锚定，不稳定，不可解释）|
+| **问卷共用策略** | 整个研究生成1份问卷，所有 persona 复用 | 同一把尺子量所有 persona，成本低（只需1次生成），跨 persona 比较有效 | 每个 persona 生成专属问卷（成本高，且无法跨 persona 比较） |
 
 ---
 
