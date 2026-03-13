@@ -1,0 +1,146 @@
+{% set escalation_cls = {
+  "高": "text-red-600 bg-red-50 border-red-200",
+  "中": "text-amber-600 bg-amber-50 border-amber-200",
+  "低": "text-green-600 bg-green-50 border-green-200"
+} %}
+{% set spread_cls = {
+  "高": "text-red-500",
+  "中": "text-amber-500",
+  "低": "text-green-500"
+} %}
+{% set tone_cls = {
+  "正面": "text-green-600",
+  "负面": "text-red-500",
+  "中立": "text-gray-500",
+  "复杂": "text-purple-600"
+} %}
+{% set card_border = {
+  "高": "border-red-200",
+  "中": "border-amber-200",
+  "低": "border-gray-100"
+} %}
+
+<div class="space-y-3">
+
+  <h2 class="text-lg font-semibold text-gray-900">模拟评论区
+    <span class="text-sm font-normal text-gray-400 ml-1">按升级风险排序</span>
+  </h2>
+
+  <div class="space-y-4">
+    {% for c in comments %}
+    {% set persona = personas_map.get(c.persona_id, {}) %}
+    {% set demo = persona.get("demographics", {}) %}
+
+    <div class="bg-white rounded-2xl border shadow-sm p-5 space-y-4 {{ card_border.get(c.escalation_risk, 'border-gray-100') }}">
+
+      {# 风险标签行 #}
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-medium px-2.5 py-1 rounded-full border {{ escalation_cls.get(c.escalation_risk, '') }}">
+          ⚡ 升级风险：{{ c.escalation_risk }}
+        </span>
+        <span class="text-xs font-medium {{ spread_cls.get(c.spread_likelihood, '') }}">
+          🔥 传播：{{ c.spread_likelihood }}
+        </span>
+        <span class="text-xs {{ tone_cls.get(c.tone, 'text-gray-500') }}">
+          情绪：{{ c.tone }}
+        </span>
+        <span class="text-xs text-gray-400 ml-auto">{{ c.platform }} · {{ c.length_type }}</span>
+      </div>
+
+      {# Persona 摘要行 #}
+      {% if persona %}
+      <div class="text-sm text-gray-600">
+        <span class="font-medium text-gray-800">{{ c.persona_id }}</span>
+        {% if demo %}
+        · {{ demo.gender }} {{ demo.age }}岁 · {{ demo.city }} · {{ demo.occupation }}
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {# 评论正文 #}
+      <p class="text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-xl p-4">{{ c.text }}</p>
+
+      {# 触发词 + 传播原因 #}
+      <div class="space-y-1.5">
+        {% if c.trigger_keywords %}
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs text-gray-400">触发词：</span>
+          {% for kw in c.trigger_keywords %}
+          <span class="text-xs bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">{{ kw }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <p class="text-xs text-gray-400 leading-relaxed">{{ c.spread_reason }}</p>
+      </div>
+
+      {# Persona 详情（折叠）#}
+      {% if persona %}
+      <details class="group">
+        <summary class="cursor-pointer flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 select-none w-fit">
+          <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          查看 Persona 详情
+        </summary>
+
+        <div class="mt-3 border-t border-gray-100 pt-3 space-y-3 text-xs text-gray-600">
+
+          {# 维度定位 #}
+          {% if persona.dimension_segments %}
+          <div class="space-y-1">
+            <p class="font-medium text-gray-700">维度定位</p>
+            {% for dim_id, seg in persona.dimension_segments.items() %}
+            <div class="flex items-start gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 shrink-0"></span>
+              <span>{{ seg.label }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# 心理触发点 #}
+          {% if persona.psychological_trigger %}
+          <div class="space-y-1">
+            <p class="font-medium text-gray-700">心理触发点</p>
+            <p class="leading-relaxed">{{ persona.psychological_trigger }}</p>
+          </div>
+          {% endif %}
+
+          {# 价值观 #}
+          {% if persona.values_and_worldview %}
+          <div class="space-y-1">
+            <p class="font-medium text-gray-700">核心价值观</p>
+            {% for v in persona.values_and_worldview %}
+            <div class="flex items-start gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 shrink-0"></span>
+              <span>{{ v }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# 生活处境 #}
+          {% if persona.life_context %}
+          <div class="space-y-1">
+            <p class="font-medium text-gray-700">生活处境</p>
+            <p class="leading-relaxed">{{ persona.life_context }}</p>
+          </div>
+          {% endif %}
+
+          {# 推理过程 #}
+          <div class="space-y-1 bg-gray-50 rounded-lg p-3">
+            <p class="font-medium text-gray-700">反应推理</p>
+            <p class="text-gray-500">{{ c.situation_reading }}</p>
+            <p class="text-gray-500">{{ c.emotional_state }}</p>
+            <p class="text-gray-500">{{ c.action_choice }}</p>
+          </div>
+
+        </div>
+      </details>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+</div>

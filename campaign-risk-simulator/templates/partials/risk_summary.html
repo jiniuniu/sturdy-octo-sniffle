@@ -1,0 +1,53 @@
+{% set tone_color = {
+  "正面": "bg-green-100 text-green-700",
+  "负面": "bg-red-100 text-red-700",
+  "中立": "bg-gray-100 text-gray-600",
+  "复杂": "bg-purple-100 text-purple-700"
+} %}
+
+<div class="space-y-3">
+
+  <h2 class="text-lg font-semibold text-gray-900">风险总览</h2>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+    {# 高升级风险 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center space-y-1">
+      <p class="text-3xl font-bold text-red-500">{{ risk_summary.high_escalation_count }}</p>
+      <p class="text-xs text-gray-500">高升级风险评论</p>
+    </div>
+
+    {# 高传播风险 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center space-y-1">
+      <p class="text-3xl font-bold text-amber-500">{{ risk_summary.high_spread_count }}</p>
+      <p class="text-xs text-gray-500">高传播风险评论</p>
+    </div>
+
+    {# 情绪分布 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+      <p class="text-xs text-gray-500 font-medium">情绪分布</p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for tone, count in risk_summary.tone_distribution.items() %}
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium {{ tone_color.get(tone, 'bg-gray-100 text-gray-600') }}">
+          {{ tone }} {{ count }}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# 高频触发词 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+      <p class="text-xs text-gray-500 font-medium">高频触发词</p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for kw in risk_summary.top_trigger_keywords %}
+        <span class="text-xs bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full">{{ kw }}</span>
+        {% endfor %}
+        {% if not risk_summary.top_trigger_keywords %}
+        <span class="text-xs text-gray-400">暂无</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+</div>

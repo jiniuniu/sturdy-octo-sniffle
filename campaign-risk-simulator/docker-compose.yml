@@ -1,0 +1,16 @@
+services:
+  campaign-risk-simulator:
+    build: .
+    container_name: campaign-risk-simulator
+    restart: unless-stopped
+    ports:
+      - "6791:6791"
+    env_file:
+      - .env
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: dbs_backend

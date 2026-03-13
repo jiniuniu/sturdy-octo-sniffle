@@ -1,0 +1,41 @@
+<div class="space-y-3">
+
+  <h2 class="text-lg font-semibold text-gray-900">风险维度</h2>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for dim in dimensions if dim.source != "hidden" %}
+
+    {% if dim.source == "campaign-specific" %}
+      {% set card_cls = "bg-orange-50 border-orange-200" %}
+      {% set badge_cls = "bg-orange-100 text-orange-700" %}
+      {% set badge_text = "活动特异" %}
+      {% set dot_cls = "bg-orange-400" %}
+    {% else %}
+      {% set card_cls = "bg-blue-50 border-blue-200" %}
+      {% set badge_cls = "bg-blue-100 text-blue-700" %}
+      {% set badge_text = "通用库" %}
+      {% set dot_cls = "bg-blue-400" %}
+    {% endif %}
+
+    <div class="rounded-xl border p-4 space-y-3 {{ card_cls }}">
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="font-semibold text-gray-900 text-sm">{{ dim.name }}</h3>
+        <span class="shrink-0 text-xs px-2 py-0.5 rounded-full {{ badge_cls }}">{{ badge_text }}</span>
+      </div>
+
+      <p class="text-xs text-gray-500 leading-relaxed">{{ dim.relevance_reason }}</p>
+
+      <ul class="space-y-1.5">
+        {% for seg in dim.segments %}
+        <li class="flex items-start gap-2 text-xs text-gray-700">
+          <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 {{ dot_cls }}"></span>
+          <span><span class="font-medium">{{ seg.label }}</span></span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% endfor %}
+  </div>
+
+</div>

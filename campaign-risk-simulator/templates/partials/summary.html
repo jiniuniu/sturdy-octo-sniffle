@@ -1,0 +1,56 @@
+{% if summary %}
+{% set level_cls = {
+  "高": "bg-red-50 border-red-300 text-red-800",
+  "中": "bg-amber-50 border-amber-300 text-amber-800",
+  "低": "bg-green-50 border-green-300 text-green-800"
+} %}
+{% set level_badge = {
+  "高": "bg-red-100 text-red-700",
+  "中": "bg-amber-100 text-amber-700",
+  "低": "bg-green-100 text-green-700"
+} %}
+
+<div class="rounded-2xl border p-6 space-y-5 {{ level_cls.get(summary.overall_risk_level, 'bg-gray-50 border-gray-200') }}">
+
+  <div class="flex items-center gap-3">
+    <h2 class="text-lg font-semibold">执行摘要</h2>
+    <span class="text-sm font-medium px-3 py-0.5 rounded-full {{ level_badge.get(summary.overall_risk_level, 'bg-gray-100 text-gray-600') }}">
+      整体风险：{{ summary.overall_risk_level }}
+    </span>
+  </div>
+
+  <p class="text-sm leading-relaxed">{{ summary.key_risk_summary }}</p>
+
+  {% if summary.top_risks %}
+  <div class="space-y-2">
+    <p class="text-xs font-semibold uppercase tracking-wide opacity-60">重点风险</p>
+    <div class="space-y-2">
+      {% for risk in summary.top_risks %}
+      <div class="bg-white/60 rounded-xl p-4 space-y-1">
+        <p class="text-sm font-medium">{{ risk.title }}</p>
+        <p class="text-xs leading-relaxed opacity-80">{{ risk.description }}</p>
+        {% if risk.related_personas %}
+        <p class="text-xs opacity-60">相关 Persona：{{ risk.related_personas | join("、") }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if summary.suggested_actions %}
+  <div class="space-y-2">
+    <p class="text-xs font-semibold uppercase tracking-wide opacity-60">建议动作</p>
+    <ul class="space-y-1">
+      {% for action in summary.suggested_actions %}
+      <li class="flex items-start gap-2 text-sm">
+        <span class="mt-1 w-1.5 h-1.5 rounded-full bg-current opacity-50 shrink-0"></span>
+        {{ action }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}

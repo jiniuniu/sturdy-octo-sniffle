@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ campaign.title }} — 风险评估报告</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+
+  <div class="max-w-4xl mx-auto px-4 py-10 space-y-10">
+
+    {# ── Header ── #}
+    {% include "partials/header.html" %}
+
+    {# ── 执行摘要 ── #}
+    {% include "partials/summary.html" %}
+
+    {# ── Section 1: 风险维度 ── #}
+    {% include "partials/dimensions.html" %}
+
+    {# ── Section 2: 风险总览 ── #}
+    {% include "partials/risk_summary.html" %}
+
+    {# ── Section 3: 模拟评论区 ── #}
+    {% include "partials/comments.html" %}
+
+  </div>
+
+</body>
+</html>

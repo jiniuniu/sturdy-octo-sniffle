@@ -1,0 +1,32 @@
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs text-gray-400 mb-1">品牌风险模拟报告</p>
+      <h1 class="text-2xl font-bold text-gray-900">{{ campaign.title }}</h1>
+    </div>
+    <span class="shrink-0 text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">已完成</span>
+  </div>
+
+  <p class="text-gray-600 leading-relaxed text-sm">{{ campaign.description }}</p>
+
+  {% if campaign.image_url %}
+  <img src="{{ campaign.image_url }}" alt="活动素材"
+       class="w-full max-h-72 object-cover rounded-xl border border-gray-100" />
+  {% endif %}
+
+  {% if campaign.visual_description %}
+  <details class="group">
+    <summary class="cursor-pointer flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 select-none">
+      <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      图片识别结果
+    </summary>
+    <div class="mt-3 p-4 bg-gray-50 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+      {{ campaign.visual_description }}
+    </div>
+  </details>
+  {% endif %}
+
+</div>
