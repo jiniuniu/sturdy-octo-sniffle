@@ -3,6 +3,8 @@ import logging
 import time
 from datetime import datetime
 
+import httpx
+
 from db.repositories import campaign_repo, dimension_repo, persona_repo, comment_repo
 from models.campaign import CampaignStatus
 from pipeline.visual import process_visual
@@ -58,6 +60,15 @@ async def _generate_and_save_comment(
     except Exception:
         logger.exception("[comment] 生成失败: %s，耗时 %.1fs", pid, time.monotonic() - t0)
         raise
+
+
+async def _fire_webhook(url: str, payload: dict):
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(url, json=payload)
+        logger.info("[webhook] 回调成功: %s", url)
+    except Exception:
+        logger.warning("[webhook] 回调失败: %s", url)
 
 
 async def run_pipeline(campaign_id: str):
@@ -165,7 +176,14 @@ async def run_pipeline(campaign_id: str):
             "===== Pipeline 完成: campaign_id=%s，总耗时 %.1fs =====",
             campaign_id, time.monotonic() - t_start,
         )
+        callback_url = campaign.get("callback_url")
+        if callback_url:
+            await _fire_webhook(callback_url, {"campaign_id": campaign_id, "status": "completed"})
 
     except Exception as e:
         logger.exception("===== Pipeline 异常终止: campaign_id=%s =====", campaign_id)
         await campaign_repo.set_error(campaign_id, str(e))
+        campaign = await campaign_repo.get(campaign_id)
+        callback_url = campaign.get("callback_url") if campaign else None
+        if callback_url:
+            await _fire_webhook(callback_url, {"campaign_id": campaign_id, "status": "error", "error": str(e)})

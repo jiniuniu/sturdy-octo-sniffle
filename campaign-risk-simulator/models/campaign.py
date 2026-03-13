@@ -55,6 +55,7 @@ class CampaignStatusResponse(BaseModel):
     progress: PipelineProgress
     stages_completed: list[str]
     error: Optional[str] = None
+    report_url: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
@@ -71,6 +72,7 @@ class CampaignDoc(BaseModel):
     visual_description: Optional[str] = None
     status: CampaignStatus = CampaignStatus.idle
     error_message: Optional[str] = None
+    callback_url: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

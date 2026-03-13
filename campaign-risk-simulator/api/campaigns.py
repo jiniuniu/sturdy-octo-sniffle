@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Reque
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from config import settings
 from db.repositories import campaign_repo, dimension_repo, persona_repo, comment_repo
 from models.campaign import (
     CampaignCreated,
@@ -43,7 +44,6 @@ def _compute_risk_summary(comments: list[dict]) -> RiskSummary:
 
     tone_dist = dict(Counter(c["tone"] for c in comments))
 
-    # 优先取升级风险高且传播风险高的；其次只升级高；再次第一条
     riskiest = next(
         (c for c in comments if c["escalation_risk"] == "高" and c["spread_likelihood"] == "高"),
         next((c for c in comments if c["escalation_risk"] == "高"), comments[0]),
@@ -92,21 +92,30 @@ def _require_campaign(campaign: dict | None, campaign_id: str) -> dict:
     return campaign
 
 
+def _report_url(campaign_id: str) -> str:
+    return f"{settings.base_url}/campaigns/{campaign_id}/report"
+
+
 # ── 路由 ────────────────────────────────────────────────────
 
-@router.post("", status_code=201, response_model=CampaignCreated)
+@router.post("", status_code=202, response_model=CampaignCreated)
 async def create_campaign(
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: str = Form(...),
     n_personas: int = Form(default=8, ge=4, le=16),
     target_market: str = Form(default="中国大陆"),
+    callback_url: Optional[str] = Form(default=None),
     image: Optional[UploadFile] = File(default=None),
 ):
     image_key, image_url = None, None
-
     if image is not None:
         data = await image.read()
         image_key, image_url = await upload_image(data, image.filename or "image.jpg")
+
+    first_status = (
+        CampaignStatus.processing_visual if image_url else CampaignStatus.extracting_dimensions
+    )
 
     doc = CampaignDoc(
         title=title,
@@ -115,47 +124,17 @@ async def create_campaign(
         target_market=target_market,
         image_key=image_key,
         image_url=image_url,
+        callback_url=callback_url,
+        status=first_status,
     )
     campaign_id = await campaign_repo.create(doc)
-    return CampaignCreated(
-        campaign_id=campaign_id,
-        status=CampaignStatus.idle,
-        created_at=datetime.now(timezone.utc),
-    )
-
-
-@router.post("/{campaign_id}/run", status_code=202)
-async def run_campaign(campaign_id: str, background_tasks: BackgroundTasks):
-    campaign = _require_campaign(await campaign_repo.get(campaign_id), campaign_id)
-
-    current = CampaignStatus(campaign["status"])
-    if current in RUNNING_STATUSES:
-        raise HTTPException(
-            status_code=409,
-            detail={"error": "pipeline_already_running", "current_status": current.value},
-        )
-    if current == CampaignStatus.completed:
-        raise HTTPException(
-            status_code=409,
-            detail={"error": "already_completed", "current_status": current.value},
-        )
-
-    # error 状态重跑：清理上次的脏数据
-    if current == CampaignStatus.error:
-        await dimension_repo.delete_by_campaign(campaign_id)
-        await persona_repo.delete_by_campaign(campaign_id)
-        await comment_repo.delete_by_campaign(campaign_id)
-
-    # 有图片时首个状态是 processing_visual，否则直接 extracting_dimensions
-    first_status = (
-        CampaignStatus.processing_visual
-        if campaign.get("image_url")
-        else CampaignStatus.extracting_dimensions
-    )
-    await campaign_repo.update_status(campaign_id, first_status)
     background_tasks.add_task(run_pipeline, campaign_id)
 
-    return {"campaign_id": campaign_id, "status": first_status.value, "message": "pipeline 已启动"}
+    return CampaignCreated(
+        campaign_id=campaign_id,
+        status=first_status,
+        created_at=datetime.now(timezone.utc),
+    )
 
 
 @router.get("/{campaign_id}/status", response_model=CampaignStatusResponse)
@@ -170,6 +149,7 @@ async def get_status(campaign_id: str):
         progress=progress,
         stages_completed=_stages_completed(status),
         error=campaign.get("error_message"),
+        report_url=_report_url(campaign_id) if status == CampaignStatus.completed else None,
         started_at=campaign.get("started_at"),
         completed_at=campaign.get("completed_at"),
     )
@@ -177,8 +157,6 @@ async def get_status(campaign_id: str):
 
 @router.get("/{campaign_id}/result")
 async def get_result(campaign_id: str):
-    from config import settings
-
     campaign = _require_campaign(await campaign_repo.get(campaign_id), campaign_id)
     status = CampaignStatus(campaign["status"])
 
@@ -197,7 +175,6 @@ async def get_result(campaign_id: str):
     comments = await comment_repo.get_by_campaign(campaign_id)
     risk_summary = _compute_risk_summary(comments)
 
-    # 清理 MongoDB _id 字段
     for doc in [*dimensions, *personas, *comments]:
         doc.pop("_id", None)
 
@@ -213,7 +190,7 @@ async def get_result(campaign_id: str):
         "personas": personas,
         "comments": comments,
         "risk_summary": risk_summary.model_dump(),
-        "report_url": f"{settings.base_url}/campaigns/{campaign_id}/report",
+        "report_url": _report_url(campaign_id),
     }
 
 
@@ -229,7 +206,6 @@ async def get_report(campaign_id: str, request: Request):
     personas = await persona_repo.get_by_campaign(campaign_id)
     comments = await comment_repo.get_by_campaign(campaign_id)
     risk_summary = _compute_risk_summary(comments)
-
     personas_map = {p["persona_id"]: p for p in personas}
 
     return templates.TemplateResponse(
