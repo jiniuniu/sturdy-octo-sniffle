@@ -1,0 +1,17 @@
+# 同机 Docker network 接入配置
+# 使用场景：MongoDB 和本应用部署在同一台机器，通过 Docker network 互通
+#
+# 使用方法：复制此文件为 docker-compose.override.yml（不进 git）
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#
+# Docker Compose 会自动合并 docker-compose.yml 和 docker-compose.override.yml
+
+services:
+  consumer-research-framework:
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: dbs_backend

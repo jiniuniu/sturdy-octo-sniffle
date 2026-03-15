@@ -49,23 +49,60 @@ uvicorn main:app --reload --port 6791
 
 ---
 
-## 云端部署
+## Docker 部署
 
-### 首次部署
+### MongoDB 连接方式
+
+应用的 `MONGODB_URI` 完全由 `.env` 控制，支持以下几种场景：
+
+#### 场景一：同机 Docker network（本地 Mac / 远程 Linux，推荐）
+
+MongoDB 和本应用跑在同一台机器的 Docker 里，通过共享 network 互通。
+
+```env
+MONGODB_URI=mongodb://mongodb:27017
+```
+
+需要额外创建 `docker-compose.override.yml`（不进 git）：
 
 ```bash
-git clone <repo_url>
-cd campaign-risk-simulator
-
-# 创建 .env，MONGODB_URI 改为容器名
-MONGODB_URI=mongodb://mongodb:27017
-
-# 启动基础服务
-cd /path/to/dbs && docker compose up -d
-
-# 启动应用
-cd campaign-risk-simulator && docker compose up --build -d
+cp docker-compose.override.yml.example docker-compose.override.yml
 ```
+
+启动：
+
+```bash
+docker compose up --build -d
+# Docker Compose 会自动合并 docker-compose.yml 和 docker-compose.override.yml
+```
+
+#### 场景二：本地 Mac，不用 network（直接访问宿主机端口）
+
+MongoDB 已将 27017 映射到宿主机，容器通过 `host.docker.internal` 访问。
+
+```env
+MONGODB_URI=mongodb://host.docker.internal:27017
+```
+
+无需 `docker-compose.override.yml`，直接启动：
+
+```bash
+docker compose up --build -d
+```
+
+#### 场景三：外部 MongoDB（Atlas 或自建远程实例）
+
+```env
+# MongoDB Atlas
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/consumer_research
+
+# 自建远程实例
+MONGODB_URI=mongodb://user:pass@1.2.3.4:27017/consumer_research
+```
+
+同样无需 `docker-compose.override.yml`，直接启动。
+
+---
 
 ### 更新部署
 

@@ -7,10 +7,3 @@ services:
       - "6791:6791"
     env_file:
       - .env
-    networks:
-      - backend
-
-networks:
-  backend:
-    external: true
-    name: dbs_backend
