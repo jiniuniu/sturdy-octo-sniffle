@@ -1,77 +1,72 @@
-{% set escalation_cls = {
+{% set stance_cls = {
+  "负面": "text-red-600 bg-red-50 border-red-200",
+  "复杂": "text-purple-600 bg-purple-50 border-purple-200",
+  "中立": "text-gray-600 bg-gray-50 border-gray-200",
+  "正面": "text-green-600 bg-green-50 border-green-200"
+} %}
+{% set card_border = {
+  "负面": "border-red-200",
+  "复杂": "border-purple-200",
+  "中立": "border-gray-100",
+  "正面": "border-green-200"
+} %}
+{% set signal_cls = {
   "高": "text-red-600 bg-red-50 border-red-200",
   "中": "text-amber-600 bg-amber-50 border-amber-200",
   "低": "text-green-600 bg-green-50 border-green-200"
 } %}
-{% set spread_cls = {
-  "高": "text-red-500",
-  "中": "text-amber-500",
-  "低": "text-green-500"
-} %}
-{% set tone_cls = {
-  "正面": "text-green-600",
-  "负面": "text-red-500",
-  "中立": "text-gray-500",
-  "复杂": "text-purple-600"
-} %}
-{% set card_border = {
-  "高": "border-red-200",
-  "中": "border-amber-200",
-  "低": "border-gray-100"
-} %}
 
 <div class="space-y-3">
 
-  <h2 class="text-lg font-semibold text-gray-900">模拟评论区
-    <span class="text-sm font-normal text-gray-400 ml-1">按升级风险排序</span>
+  <h2 class="text-lg font-semibold text-gray-900">Persona 反应
+    <span class="text-sm font-normal text-gray-400 ml-1">按立场排序</span>
   </h2>
 
   <div class="space-y-4">
-    {% for c in comments %}
-    {% set persona = personas_map.get(c.persona_id, {}) %}
+    {% for r in responses %}
+    {% set persona = personas_map.get(r.persona_id, {}) %}
     {% set demo = persona.get("demographics", {}) %}
 
-    <div class="bg-white rounded-2xl border shadow-sm p-5 space-y-4 {{ card_border.get(c.escalation_risk, 'border-gray-100') }}">
+    <div class="bg-white rounded-2xl border shadow-sm p-5 space-y-4 {{ card_border.get(r.primary_stance, 'border-gray-100') }}">
 
-      {# 风险标签行 #}
+      {# 立场 + 信号行 #}
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs font-medium px-2.5 py-1 rounded-full border {{ escalation_cls.get(c.escalation_risk, '') }}">
-          ⚡ 升级风险：{{ c.escalation_risk }}
+        <span class="text-xs font-medium px-2.5 py-1 rounded-full border {{ stance_cls.get(r.primary_stance, '') }}">
+          {{ r.primary_stance }}
         </span>
-        <span class="text-xs font-medium {{ spread_cls.get(c.spread_likelihood, '') }}">
-          🔥 传播：{{ c.spread_likelihood }}
+        {% for signal in r.signals %}
+        <span class="text-xs font-medium px-2.5 py-1 rounded-full border {{ signal_cls.get(signal.level, '') }}">
+          {{ signal.key }}：{{ signal.level }}
         </span>
-        <span class="text-xs {{ tone_cls.get(c.tone, 'text-gray-500') }}">
-          情绪：{{ c.tone }}
-        </span>
-        <span class="text-xs text-gray-400 ml-auto">{{ c.platform }} · {{ c.length_type }}</span>
+        {% endfor %}
       </div>
 
       {# Persona 摘要行 #}
       {% if persona %}
       <div class="text-sm text-gray-600">
-        <span class="font-medium text-gray-800">{{ c.persona_id }}</span>
+        <span class="font-medium text-gray-800">{{ r.persona_id }}</span>
         {% if demo %}
         · {{ demo.gender }} {{ demo.age }}岁 · {{ demo.city }} · {{ demo.occupation }}
         {% endif %}
       </div>
       {% endif %}
 
-      {# 评论正文 #}
-      <p class="text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-xl p-4">{{ c.text }}</p>
+      {# 核心观点 #}
+      <p class="text-sm text-gray-800 leading-relaxed bg-gray-50 rounded-xl p-4 italic">
+        "{{ r.key_quote }}"
+      </p>
 
-      {# 触发词 + 传播原因 #}
+      {# 反应内容 #}
+      {% if r.content %}
       <div class="space-y-1.5">
-        {% if c.trigger_keywords %}
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-gray-400">触发词：</span>
-          {% for kw in c.trigger_keywords %}
-          <span class="text-xs bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">{{ kw }}</span>
-          {% endfor %}
+        {% for key, value in r.content.items() %}
+        <div class="flex items-start gap-2 text-sm">
+          <span class="text-xs text-gray-400 shrink-0 w-16 pt-0.5">{{ key }}</span>
+          <p class="text-gray-700 leading-relaxed">{{ value }}</p>
         </div>
-        {% endif %}
-        <p class="text-xs text-gray-400 leading-relaxed">{{ c.spread_reason }}</p>
+        {% endfor %}
       </div>
+      {% endif %}
 
       {# Persona 详情（折叠）#}
       {% if persona %}
@@ -128,12 +123,12 @@
           {% endif %}
 
           {# 推理过程 #}
+          {% if r.reasoning %}
           <div class="space-y-1 bg-gray-50 rounded-lg p-3">
             <p class="font-medium text-gray-700">反应推理</p>
-            <p class="text-gray-500">{{ c.situation_reading }}</p>
-            <p class="text-gray-500">{{ c.emotional_state }}</p>
-            <p class="text-gray-500">{{ c.action_choice }}</p>
+            <p class="text-gray-500 leading-relaxed">{{ r.reasoning }}</p>
           </div>
+          {% endif %}
 
         </div>
       </details>

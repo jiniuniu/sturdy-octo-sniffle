@@ -1,0 +1,66 @@
+{% set study_type_label = {
+  "risk_assessment": "风险评估",
+  "concept_test": "概念测试",
+  "pricing_test": "定价测试",
+  "creative_test": "创意测试",
+  "policy_test": "政策测试",
+  "market_entry": "市场进入评估",
+  "brand_fit": "品牌匹配度",
+  "user_journey": "用户旅程",
+  "competitive_perception": "竞品认知"
+} %}
+{% set design = study.study_design %}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs text-gray-400 mb-1">消费者研究报告</p>
+      <h1 class="text-2xl font-bold text-gray-900">{{ study.title }}</h1>
+    </div>
+    <div class="flex flex-col items-end gap-1.5 shrink-0">
+      <span class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">已完成</span>
+      {% if design %}
+      <span class="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
+        {{ study_type_label.get(design.study_type, design.study_type) }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="text-gray-600 leading-relaxed text-sm">{{ study.description }}</p>
+
+  {% if design and design.research_objective %}
+  <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+    <p class="text-xs text-blue-400 font-medium mb-1">研究目标</p>
+    <p class="text-sm text-blue-800 leading-relaxed">{{ design.research_objective }}</p>
+  </div>
+  {% endif %}
+
+  {% if study.context %}
+  <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-400 font-medium mb-1">背景信息</p>
+    <p class="text-sm text-gray-600 leading-relaxed">{{ study.context }}</p>
+  </div>
+  {% endif %}
+
+  {% if study.image_url %}
+  <img src="{{ study.image_url }}" alt="研究素材"
+       class="w-full max-h-72 object-cover rounded-xl border border-gray-100" />
+  {% endif %}
+
+  {% if study.visual_description %}
+  <details class="group">
+    <summary class="cursor-pointer flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 select-none">
+      <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+      图片识别结果
+    </summary>
+    <div class="mt-3 p-4 bg-gray-50 rounded-xl text-sm text-gray-600 leading-relaxed border border-gray-100">
+      {{ study.visual_description }}
+    </div>
+  </details>
+  {% endif %}
+
+</div>

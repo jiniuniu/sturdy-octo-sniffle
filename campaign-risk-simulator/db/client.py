@@ -24,8 +24,9 @@ async def close_client():
 
 async def init_indexes():
     db = get_db()
-    await db.dimensions.create_index("campaign_id")
-    await db.personas.create_index("campaign_id")
-    await db.personas.create_index([("campaign_id", 1), ("persona_id", 1)])
-    await db.comments.create_index("campaign_id")
-    await db.comments.create_index([("campaign_id", 1), ("escalation_risk", -1)])
+    await db.studies.create_index("status")
+    await db.dimensions.create_index("study_id")
+    await db.personas.create_index("study_id")
+    await db.personas.create_index([("study_id", 1), ("persona_id", 1)])
+    await db.responses.create_index("study_id")
+    await db.responses.create_index([("study_id", 1), ("primary_stance", 1)])

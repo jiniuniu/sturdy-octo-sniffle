@@ -208,8 +208,8 @@ def main():
                         help="Persona 数量，4-16 (默认: 4，加快测试)")
     parser.add_argument("--study_id", default="",
                         help="跳过创建，直接查询已有 study_id")
-    parser.add_argument("--base_url", default=BASE_URL,
-                        help=f"服务地址 (默认: {BASE_URL})")
+    parser.add_argument("--base_url", default="http://localhost:6791",
+                        help="服务地址 (默认: http://localhost:6791)")
     parser.add_argument("--api_key", default="",
                         help="API Key（服务未配置 API_KEYS 时可留空）")
     args = parser.parse_args()

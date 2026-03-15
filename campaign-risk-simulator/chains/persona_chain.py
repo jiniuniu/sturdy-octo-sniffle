@@ -3,11 +3,11 @@ from langchain.output_parsers import OutputFixingParser
 from chains.client import get_llm
 from models.persona import PersonaOutput
 
-_PROMPT = """你正在为品牌营销活动风险评估生成一个合成消费者 persona。
+_PROMPT = """你正在为消费者研究生成一个合成消费者 persona。
 目标市场为：{target_market}，请确保 persona 的地域、文化背景与该市场一致。
 
-## 活动背景
-{campaign_description}
+## 研究背景
+{stimulus_description}
 
 ## 该 Persona 的维度定位
 以下是该 persona 在各差异维度上的位置，每条描述了一种特定的消费者类型。
@@ -25,9 +25,9 @@ persona 的背景和生活处境应该自然解释他/她为何持有这些立�
 - 生活处境：居住状况、家庭结构、日常生活
 - 价值观与世界观：2-3 条影响其消费行为的核心信念
 - 与品牌的关系：他/她如何对待营销内容
-- 心理触发点：这个活动中具体什么内容会激发他/她的强烈反应
+- 心理触发点：这个研究对象中具体什么内容会激发他/她的强烈反应
 - 身份摘要：一行话（年龄、职业、地点、一个定义性特质）
-- 初始反应提示：看到这个活动时第一感受的一句话描述
+- 初始反应提示：看到研究对象时第一感受的一句话描述
 
 Persona ID 为：{persona_id}
 
@@ -47,7 +47,7 @@ async def generate_persona(
 
     response = await llm.ainvoke(
         _PROMPT.format(
-            campaign_description=campaign_description,
+            stimulus_description=campaign_description,
             segments_text=segments_text,
             persona_id=persona_id,
             target_market=target_market,

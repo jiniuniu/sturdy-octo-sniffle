@@ -1,0 +1,61 @@
+{% set tone_color = {
+  "正面": "bg-green-100 text-green-700",
+  "负面": "bg-red-100 text-red-700",
+  "中立": "bg-gray-100 text-gray-600",
+  "复杂": "bg-purple-100 text-purple-700"
+} %}
+
+<div class="space-y-3">
+
+  <h2 class="text-lg font-semibold text-gray-900">反应总览</h2>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    {# 立场分布 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+      <p class="text-xs text-gray-500 font-medium">立场分布</p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for stance, count in response_summary.stance_distribution.items() %}
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium {{ tone_color.get(stance, 'bg-gray-100 text-gray-600') }}">
+          {{ stance }} {{ count }}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# 高风险信号 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+      <p class="text-xs text-gray-500 font-medium">高风险信号</p>
+      {% if response_summary.signal_summary %}
+      <div class="flex flex-wrap gap-1.5">
+        {% for key, count in response_summary.signal_summary.items() %}
+        <span class="text-xs bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full">
+          {{ key }} ×{{ count }}
+        </span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-400">暂无高风险信号</p>
+      {% endif %}
+    </div>
+
+    {# 代表性观点 #}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+      <p class="text-xs text-gray-500 font-medium">代表性观点</p>
+      {% if response_summary.top_quotes %}
+      <div class="space-y-1.5">
+        {% for q in response_summary.top_quotes[:3] %}
+        <div class="flex items-start gap-1.5">
+          <span class="text-xs shrink-0 {{ tone_color.get(q.stance, 'bg-gray-100 text-gray-600') }} px-1.5 py-0.5 rounded-full">{{ q.stance }}</span>
+          <p class="text-xs text-gray-600 leading-relaxed line-clamp-2">{{ q.quote }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-400">暂无</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+</div>

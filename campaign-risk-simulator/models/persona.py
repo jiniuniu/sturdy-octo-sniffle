@@ -16,7 +16,6 @@ class DimensionSegmentRef(BaseModel):
     description: str
 
 
-# LLM 结构化输出
 class PersonaOutput(BaseModel):
     id: str
     identity_summary: str
@@ -28,13 +27,11 @@ class PersonaOutput(BaseModel):
     initial_reaction_hint: Optional[str] = None
 
 
-# DB Document
 class PersonaDoc(BaseModel):
-    campaign_id: str
-    persona_id: str                                      # "persona_1"
-    dimension_scores: dict[str, float]                   # {dim_id: 0.0-1.0}
-    dimension_segments: dict[str, DimensionSegmentRef]   # {dim_id: segment}
-    # 以下字段由 LLM 生成后填入
+    study_id: str
+    persona_id: str
+    dimension_scores: dict[str, float]
+    dimension_segments: dict[str, DimensionSegmentRef]
     identity_summary: Optional[str] = None
     demographics: Optional[Demographics] = None
     life_context: Optional[str] = None

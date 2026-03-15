@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from db.client import init_indexes, close_client
-from api.campaigns import router as campaigns_router
 from api.studies import router as studies_router
 
 logging.basicConfig(
@@ -26,8 +25,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(studies_router)    # 新通用框架
-app.include_router(campaigns_router)  # 向后兼容
+app.include_router(studies_router)
 
 
 @app.get("/health")

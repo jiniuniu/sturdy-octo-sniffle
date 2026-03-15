@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ study.title }} — 消费者研究报告</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+
+  <div class="max-w-4xl mx-auto px-4 py-10 space-y-10">
+
+    {# ── Header ── #}
+    {% include "partials/study_header.html" %}
+
+    {# ── 研究总结 ── #}
+    {% include "partials/study_summary.html" %}
+
+    {# ── 研究维度 ── #}
+    {% include "partials/dimensions.html" %}
+
+    {# ── 反应总览 ── #}
+    {% include "partials/response_summary.html" %}
+
+    {# ── Persona 反应列表 ── #}
+    {% include "partials/responses.html" %}
+
+  </div>
+
+</body>
+</html>
