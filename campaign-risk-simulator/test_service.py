@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 
 BASE_URL = "http://localhost:6791"
+API_KEY = ""  # 运行时由 --api_key 参数覆盖
 
 # ── 预设测试场景 ──────────────────────────────────────────────
 
@@ -70,6 +71,8 @@ def _request(method: str, path: str, data: dict | None = None) -> dict:
     url = f"{BASE_URL}{path}"
     body = None
     headers = {}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY}"
     if data:
         body = urllib.parse.urlencode(data).encode()
         headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -207,10 +210,13 @@ def main():
                         help="跳过创建，直接查询已有 study_id")
     parser.add_argument("--base_url", default=BASE_URL,
                         help=f"服务地址 (默认: {BASE_URL})")
+    parser.add_argument("--api_key", default="",
+                        help="API Key（服务未配置 API_KEYS 时可留空）")
     args = parser.parse_args()
 
-    global BASE_URL
+    global BASE_URL, API_KEY
     BASE_URL = args.base_url
+    API_KEY = args.api_key
 
     print(f"Consumer Research Framework 本地测试")
     print(f"服务地址: {BASE_URL}")

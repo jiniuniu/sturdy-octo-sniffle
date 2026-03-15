@@ -2,11 +2,12 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from config import settings
+from core.auth import verify_api_key
 from db.repositories import study_repo, dimension_repo, persona_repo, response_repo
 from models.study import (
     StudyCreate,
@@ -22,7 +23,7 @@ from models.study import (
 from pipeline.study_runner import run_study_pipeline
 from storage.qiniu import upload_image
 
-router = APIRouter(prefix="/studies", tags=["studies"])
+router = APIRouter(prefix="/studies", tags=["studies"], dependencies=[Depends(verify_api_key)])
 templates = Jinja2Templates(directory="templates")
 
 

@@ -24,6 +24,9 @@ QINIU_DOMAIN=       # 如 https://cdn.example.com
 
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB=consumer_research
+
+# API 认证（逗号分隔；留空则不启用认证，适合纯本地开发）
+API_KEYS=key_alice_xxx,key_bob_xxx
 ```
 
 ### 2. 启动依赖服务
@@ -74,11 +77,22 @@ cd campaign-risk-simulator && docker compose up --build -d
 
 ## API 使用
 
+### 认证
+
+所有 `/studies` 接口需要在请求头中携带 API Key：
+
+```bash
+-H "Authorization: Bearer your_api_key"
+```
+
+未在 `.env` 中配置 `API_KEYS` 时自动跳过认证，适合纯本地开发。
+
 ### 新通用接口 `/studies`
 
 ```bash
 # 创建研究（风险评估示例）
-curl -X POST http://localhost:6791/studies \
+curl -H "Authorization: Bearer your_api_key" \
+  -X POST http://localhost:6791/studies \
   -F "title=新能源汽车春节活动" \
   -F "description=某国内新能源汽车品牌发布春节营销活动..." \
   -F 'study_design={
@@ -91,7 +105,8 @@ curl -X POST http://localhost:6791/studies \
   -F "n_personas=8"
 
 # 创建研究（概念测试示例）
-curl -X POST http://localhost:6791/studies \
+curl -H "Authorization: Bearer your_api_key" \
+  -X POST http://localhost:6791/studies \
   -F "title=订阅制会员方案" \
   -F "description=我们计划推出月费99元的会员服务..." \
   -F 'study_design={

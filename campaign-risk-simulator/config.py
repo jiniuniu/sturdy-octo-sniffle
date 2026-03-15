@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -7,6 +8,16 @@ class Settings(BaseSettings):
     # MongoDB
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "campaign_risk"
+
+    # API Keys（逗号分隔，留空则不启用认证）
+    api_keys: list[str] = []
+
+    @field_validator("api_keys", mode="before")
+    @classmethod
+    def parse_api_keys(cls, v):
+        if isinstance(v, str):
+            return [k.strip() for k in v.split(",") if k.strip()]
+        return v
 
     # LLM（OpenAI-compatible）
     llm_api_key: str
