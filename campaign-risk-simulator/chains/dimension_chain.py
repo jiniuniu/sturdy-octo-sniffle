@@ -2,30 +2,35 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain.output_parsers import OutputFixingParser
 from chains.client import get_llm
 from models.dimension import DimensionsOutput
+from models.study import StudyDesign
 
-_PROMPT = """你是一名专注于消费者情绪与文化动态的品牌风险分析师。
-你的任务是识别不同消费者对同一品牌营销活动可能产生截然不同反应的关键差异轴线（风险维度）。
+_PROMPT = """你是一名专注于消费者行为研究的分析师。
+你的任务是识别不同消费者对同一研究对象可能产生截然不同反应的关键差异轴线（研究维度）。
 
-## 活动信息
+## 研究信息
 
-<活动描述>
-{campaign_description}
-</活动描述>
+<研究目标>
+{research_objective}
+</研究目标>
+
+<研究对象描述>
+{stimulus_description}
+</研究对象描述>
 
 <视觉内容描述>
 {visual_description}
 </视觉内容描述>
 
-## 第一步：活动分析
-从以下角度简要分析这个活动：
-- 活动传递的核心信息与价值主张
+## 第一步：研究对象分析
+从以下角度简要分析这个研究对象：
+- 传递的核心信息与价值主张
 - 内容中隐含的目标受众假设
 - 使用的文化符号、意象或参考
 - 可能触及的社会议题或敏感点
 - 任何隐性主张（关于生活方式、身份认同、社会地位等）
 
-## 第二步：对照风险维度库筛查
-评估以下预定义维度与本活动的相关性，每项标注 [高度相关 / 低度相关 / 不相关] 并附一句理由：
+## 第二步：对照维度库筛查
+评估以下预定义维度与本研究对象的相关性，每项标注 [高度相关 / 低度相关 / 不相关] 并附一句理由：
 
 预定义维度：
 - 性别与女性主义敏感度：对性别角色与表达方式的态度
@@ -39,14 +44,17 @@ _PROMPT = """你是一名专注于消费者情绪与文化动态的品牌风险�
 - 政治与意识形态立场：左右价值体系的共鸣程度
 - 代际价值观：不同年龄段之间显著差异的态度
 
-## 第三步：生成活动特异性维度
-基于第一步分析，识别 1-3 个本活动特有的、上述维度库未能覆盖的差异维度。
+## 第三步：生成研究特异性维度
+基于第一步分析，识别 1-3 个本研究特有的、上述维度库未能覆盖的差异维度。
+**重点**：维度选择应服务于研究目标「{research_objective}」，优先选择与该目标最相关的差异轴线。
+
+{preset_dimensions_section}
 
 ## 第四步：最终维度选择与格式化
 综合维度库与特异性维度，选出最重要的 2-4 个。优先选择：
 1. 不同消费者类型会产生根本性不同反应的维度
-2. 活动内容有明确信号会激活这一维度
-3. 该维度捕捉到有意义的风险（声誉、文化、商业）
+2. 研究对象内容有明确信号会激活这一维度
+3. 该维度捕捉到与研究目标直接相关的差异
 
 每个维度定义 3-5 个分段。分段不必按程度递进，可以是持有不同世界观的消费者类型。
 每个分段的描述应足够具体，单独看这段描述就能写出一个连贯的 persona。
@@ -87,21 +95,47 @@ label 应直接描述这类消费者的核心立场或态度，用短语而非�
 {format_instructions}
 """
 
+_PRESET_DIMENSIONS_SECTION = """## 用户预设维度（必须包含）
+以下维度由研究者指定，必须原样包含在最终输出中（source 设为 "preset"），再从剩余空间补充其他维度：
+{preset_list}
+"""
+
+
+def _build_preset_section(preset_dimensions: list) -> str:
+    if not preset_dimensions:
+        return ""
+    lines = []
+    for i, d in enumerate(preset_dimensions, 1):
+        lines.append(f"{i}. 【{d.name}】{d.description}")
+        if d.segments:
+            lines.append(f"   预设分段：{'、'.join(d.segments)}")
+    return _PRESET_DIMENSIONS_SECTION.format(preset_list="\n".join(lines))
+
 
 async def extract_dimensions(
-    campaign_description: str,
+    stimulus_description: str,
     visual_description: str = "",
     target_market: str = "中国大陆",
+    study_design: StudyDesign | None = None,
 ) -> DimensionsOutput:
     parser = PydanticOutputParser(pydantic_object=DimensionsOutput)
     llm = get_llm(temperature=0.3)
     fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=get_llm(temperature=0))
 
+    research_objective = (
+        study_design.research_objective
+        if study_design
+        else "识别消费者对该内容可能产生的不同反应"
+    )
+    preset_dimensions = study_design.preset_dimensions if study_design else []
+
     response = await llm.ainvoke(
         _PROMPT.format(
-            campaign_description=campaign_description,
+            research_objective=research_objective,
+            stimulus_description=stimulus_description,
             visual_description=visual_description or "（无视觉内容）",
             target_market=target_market,
+            preset_dimensions_section=_build_preset_section(preset_dimensions),
             format_instructions=parser.get_format_instructions(),
         )
     )

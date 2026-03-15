@@ -1,7 +1,7 @@
 services:
-  campaign-risk-simulator:
+  consumer-research-framework:
     build: .
-    container_name: campaign-risk-simulator
+    container_name: consumer-research-framework
     restart: unless-stopped
     ports:
       - "6791:6791"

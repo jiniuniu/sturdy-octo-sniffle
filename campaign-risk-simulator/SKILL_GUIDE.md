@@ -1,6 +1,6 @@
-# Campaign Risk Simulator — Nanobot Skill 开发指南
+# Consumer Research Framework — Nanobot Skill 开发指南
 
-本文档指导 agent 为 Campaign Risk Simulator 服务编写 nanobot skill。
+本文档指导 agent 为 Consumer Research Framework 服务编写 nanobot skill。
 
 ---
 
@@ -9,10 +9,10 @@
 每个 skill 放在 `~/.nanobot/workspace/skills/<skill-name>/` 目录下：
 
 ```
-~/.nanobot/workspace/skills/campaign-risk/
+~/.nanobot/workspace/skills/consumer-research/
   SKILL.md          ← skill 描述与使用说明（agent 读取此文件决定是否调用）
   scripts/
-    run.py          ← 创建并触发分析任务
+    run.py          ← 创建并等待研究任务完成
     status.py       ← 查询任务状态
     result.py       ← 获取完整结果
 ```
@@ -23,47 +23,60 @@
 
 **Base URL**：`http://localhost:6791`（云端替换为实际地址）
 
-### 1. 创建任务
+### 1. 创建研究任务
 
 ```
-POST /campaigns
+POST /studies
 Content-Type: multipart/form-data
 ```
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `title` | string | ✓ | 活动名称 |
-| `description` | string | ✓ | 活动详细描述 |
+| `title` | string | ✓ | 研究标题 |
+| `description` | string | ✓ | 研究对象详细描述 |
+| `study_design` | string (JSON) | ✓ | 研究设计，见下方说明 |
+| `stimulus_type` | string | 否 | 刺激物类型，默认 `campaign` |
+| `context` | string | 否 | 背景信息 |
 | `n_personas` | int | 否 | persona 数量，4~16，默认 8 |
-| `target_market` | string | 否 | 目标市场，默认"中国大陆" |
+| `target_market` | string | 否 | 目标市场，默认 `中国大陆` |
 | `callback_url` | string | 否 | 完成后回调地址 |
-| `image` | file | 否 | 活动图片（jpg/png） |
+| `image` | file | 否 | 相关图片（jpg/png） |
+
+**study_design JSON 结构**：
+```json
+{
+  "study_type": "risk_assessment",
+  "research_objective": "识别该活动可能引发的舆论风险",
+  "response_mode": "comment",
+  "analysis_framework": "risk"
+}
+```
 
 **响应（202）**：
 ```json
 {
-  "campaign_id": "abc123",
+  "study_id": "abc123",
   "status": "extracting_dimensions",
-  "created_at": "2026-03-13T10:00:00Z"
+  "created_at": "2026-03-15T10:00:00Z"
 }
 ```
 
 ### 2. 查询状态
 
 ```
-GET /campaigns/{campaign_id}/status
+GET /studies/{study_id}/status
 ```
 
 **响应**：
 ```json
 {
-  "campaign_id": "abc123",
-  "status": "generating_comments",
+  "study_id": "abc123",
+  "status": "generating_responses",
   "progress": {
     "personas_completed": 6,
     "personas_total": 8,
-    "comments_completed": 4,
-    "comments_total": 8
+    "responses_completed": 4,
+    "responses_total": 8
   },
   "stages_completed": ["extracting_dimensions", "sampling", "generating_personas"],
   "report_url": null
@@ -72,9 +85,9 @@ GET /campaigns/{campaign_id}/status
 
 `status` 流转：
 ```
-extracting_dimensions → sampling → generating_personas → generating_comments → completed
+extracting_dimensions → sampling → generating_personas → generating_responses → completed
 processing_visual（有图片时为第一步）
-error（可重新创建任务）
+error
 ```
 
 `completed` 时 `report_url` 有值，指向 HTML 报告页面。
@@ -82,7 +95,7 @@ error（可重新创建任务）
 ### 3. 获取结果
 
 ```
-GET /campaigns/{campaign_id}/result
+GET /studies/{study_id}/result
 ```
 
 仅 `status=completed` 时可调用，否则返回 `425`。
@@ -90,25 +103,31 @@ GET /campaigns/{campaign_id}/result
 **响应**：
 ```json
 {
-  "campaign_id": "abc123",
-  "campaign": { "title": "...", "description": "..." },
+  "study_id": "abc123",
+  "study": {
+    "title": "...",
+    "description": "...",
+    "study_design": { "study_type": "risk_assessment", "..." : "..." }
+  },
   "summary": {
-    "overall_risk_level": "高",
-    "key_risk_summary": "...",
-    "top_risks": [...],
-    "suggested_actions": [...]
+    "overall_conclusion": "该活动存在中高文化挪用风险...",
+    "confidence_level": "高",
+    "findings": [
+      { "key": "整体风险等级", "value": "高", "evidence": "...", "importance": "高" }
+    ],
+    "segment_differences": [...],
+    "suggested_actions": [...],
+    "open_questions": [...]
   },
   "dimensions": [...],
   "personas": [...],
-  "comments": [...],
-  "risk_summary": {
-    "high_escalation_count": 3,
-    "high_spread_count": 2,
-    "top_trigger_keywords": ["价格", "质量"],
-    "tone_distribution": {"负面": 4, "中性": 3, "正面": 1},
-    "riskiest_persona_id": "persona_3"
+  "responses": [...],
+  "response_summary": {
+    "stance_distribution": { "负面": 4, "中立": 3, "正面": 1 },
+    "signal_summary": { "escalation_risk": 3, "spread_risk": 2 },
+    "top_quotes": [...]
   },
-  "report_url": "http://localhost:6791/campaigns/abc123/report"
+  "report_url": "http://localhost:6791/studies/abc123/report"
 }
 ```
 
@@ -118,10 +137,10 @@ GET /campaigns/{campaign_id}/result
 
 ```json
 // 成功
-{"campaign_id": "abc123", "status": "completed"}
+{"study_id": "abc123", "status": "completed"}
 
 // 失败
-{"campaign_id": "abc123", "status": "error", "error": "..."}
+{"study_id": "abc123", "status": "error", "error": "..."}
 ```
 
 ---
@@ -130,22 +149,26 @@ GET /campaigns/{campaign_id}/result
 
 ```markdown
 ---
-name: campaign-risk
-description: 对品牌营销活动进行风险模拟分析，生成多角色消费者反应与风险评估报告。当用户需要评估活动风险、分析消费者反应、检验营销方案时使用。触发词：风险分析、活动评估、消费者反应、campaign risk。
+name: consumer-research
+description: 对任意商业决策场景进行消费者反应仿真研究，生成多角色 Persona 反应与研究报告。支持风险评估、概念测试、定价测试、创意测试等场景。触发词：消费者研究、风险分析、概念测试、定价测试、创意测试、用户反应。
 ---
 
-# Campaign Risk Simulator
+# Consumer Research Framework
 
-对营销活动进行 AI 多 Persona 风险仿真，输出结构化风险报告。
+对任意商业内容进行 AI 多 Persona 消费者仿真，输出结构化研究报告。
 
 ## 使用方法
 
-### 创建并等待分析完成
+### 创建并等待研究完成
 
 ```bash
-python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/run.py \
-  --title "活动名称" \
-  --description "活动详细描述" \
+python3 ~/.nanobot/workspace/skills/consumer-research/scripts/run.py \
+  --title "研究标题" \
+  --description "研究对象详细描述" \
+  --study_type "risk_assessment" \
+  --research_objective "识别该活动可能引发的舆论风险" \
+  --response_mode "comment" \
+  --analysis_framework "risk" \
   [--n_personas 8] \
   [--target_market "中国大陆"]
 ```
@@ -153,14 +176,25 @@ python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/run.py \
 ### 查询状态
 
 ```bash
-python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/status.py <campaign_id>
+python3 ~/.nanobot/workspace/skills/consumer-research/scripts/status.py <study_id>
 ```
 
 ### 获取结果
 
 ```bash
-python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/result.py <campaign_id>
+python3 ~/.nanobot/workspace/skills/consumer-research/scripts/result.py <study_id>
 ```
+
+## 常用 study_type / response_mode / analysis_framework 组合
+
+| 场景 | study_type | response_mode | analysis_framework |
+|------|-----------|--------------|-------------------|
+| 营销活动风险评估 | risk_assessment | comment | risk |
+| 新品概念测试 | concept_test | survey | acceptance |
+| 定价测试 | pricing_test | purchase_intent | acceptance |
+| 广告创意测试 | creative_test | reaction | fit_assessment |
+| 公关声明评估 | policy_test | comment | risk |
+| 用户旅程研究 | user_journey | interview | decision_path |
 
 ## 返回说明
 
@@ -170,9 +204,9 @@ python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/result.py <campaign_id
 
 ## 注意事项
 
-1. 分析通常需要 2~5 分钟，取决于 persona 数量
+1. 研究通常需要 2~5 分钟，取决于 persona 数量
 2. `report_url` 是可分享的 HTML 报告页面链接
-3. `summary.overall_risk_level` 为最终风险等级：低 / 中 / 高
+3. `summary.overall_conclusion` 为一句话核心结论
 ```
 ```
 
@@ -183,8 +217,8 @@ python3 ~/.nanobot/workspace/skills/campaign-risk/scripts/result.py <campaign_id
 ```python
 #!/usr/bin/env python3
 """
-创建 campaign 并等待完成，输出最终结果。
-Usage: python3 run.py --title "活动名" --description "描述" [--n_personas 8] [--target_market "中国大陆"]
+创建研究任务并等待完成，输出最终结果。
+Usage: python3 run.py --title "标题" --description "描述" --study_type "risk_assessment" ...
 """
 import sys
 import json
@@ -196,15 +230,22 @@ import urllib.parse
 BASE_URL = "http://localhost:6791"
 
 
-def create_campaign(title, description, n_personas, target_market):
+def create_study(title, description, study_type, research_objective, response_mode, analysis_framework, n_personas, target_market):
+    study_design = json.dumps({
+        "study_type": study_type,
+        "research_objective": research_objective,
+        "response_mode": response_mode,
+        "analysis_framework": analysis_framework,
+    })
     body = urllib.parse.urlencode({
         "title": title,
         "description": description,
+        "study_design": study_design,
         "n_personas": str(n_personas),
         "target_market": target_market,
     }).encode()
     req = urllib.request.Request(
-        f"{BASE_URL}/campaigns",
+        f"{BASE_URL}/studies",
         data=body,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
@@ -213,17 +254,17 @@ def create_campaign(title, description, n_personas, target_market):
         return json.loads(resp.read())
 
 
-def poll_status(campaign_id, interval=10, timeout=600):
+def poll_status(study_id, interval=10, timeout=600):
     deadline = time.time() + timeout
     while time.time() < deadline:
-        req = urllib.request.Request(f"{BASE_URL}/campaigns/{campaign_id}/status")
+        req = urllib.request.Request(f"{BASE_URL}/studies/{study_id}/status")
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         status = data["status"]
         progress = data.get("progress", {})
         print(
             f"[{status}] personas {progress.get('personas_completed', 0)}/{progress.get('personas_total', 0)}"
-            f" comments {progress.get('comments_completed', 0)}/{progress.get('comments_total', 0)}",
+            f" responses {progress.get('responses_completed', 0)}/{progress.get('responses_total', 0)}",
             file=sys.stderr,
         )
         if status == "completed":
@@ -236,8 +277,8 @@ def poll_status(campaign_id, interval=10, timeout=600):
     return False
 
 
-def get_result(campaign_id):
-    req = urllib.request.Request(f"{BASE_URL}/campaigns/{campaign_id}/result")
+def get_result(study_id):
+    req = urllib.request.Request(f"{BASE_URL}/studies/{study_id}/result")
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read())
 
@@ -246,16 +287,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--title", required=True)
     parser.add_argument("--description", required=True)
+    parser.add_argument("--study_type", default="risk_assessment")
+    parser.add_argument("--research_objective", default="分析消费者对该内容的反应")
+    parser.add_argument("--response_mode", default="comment")
+    parser.add_argument("--analysis_framework", default="risk")
     parser.add_argument("--n_personas", type=int, default=8)
     parser.add_argument("--target_market", default="中国大陆")
     args = parser.parse_args()
 
-    created = create_campaign(args.title, args.description, args.n_personas, args.target_market)
-    campaign_id = created["campaign_id"]
-    print(f"campaign_id: {campaign_id}", file=sys.stderr)
+    created = create_study(
+        args.title, args.description,
+        args.study_type, args.research_objective,
+        args.response_mode, args.analysis_framework,
+        args.n_personas, args.target_market,
+    )
+    study_id = created["study_id"]
+    print(f"study_id: {study_id}", file=sys.stderr)
 
-    if poll_status(campaign_id):
-        result = get_result(campaign_id)
+    if poll_status(study_id):
+        result = get_result(study_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         sys.exit(1)
@@ -268,6 +318,6 @@ if __name__ == "__main__":
 agent 执行以下命令完成 skill 安装：
 
 ```bash
-mkdir -p ~/.nanobot/workspace/skills/campaign-risk/scripts
+mkdir -p ~/.nanobot/workspace/skills/consumer-research/scripts
 # 然后写入 SKILL.md 和 scripts/run.py、status.py、result.py
 ```

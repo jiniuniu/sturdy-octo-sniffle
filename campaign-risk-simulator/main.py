@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from db.client import init_indexes, close_client
 from api.campaigns import router as campaigns_router
+from api.studies import router as studies_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,12 +21,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Campaign Risk Simulator",
-    version="0.1.0",
+    title="Consumer Research Framework",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
-app.include_router(campaigns_router)
+app.include_router(studies_router)    # 新通用框架
+app.include_router(campaigns_router)  # 向后兼容
 
 
 @app.get("/health")
