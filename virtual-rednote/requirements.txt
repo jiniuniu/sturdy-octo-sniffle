@@ -7,11 +7,11 @@ pydantic==2.11.7
 pydantic-settings==2.10.1
 langchain==0.3.23
 langchain-core==0.3.79
-langchain-openai==0.3.35
-langchain-anthropic==0.3.10
+langchain-openai
+langchain-anthropic
 langchain-community==0.3.21
-openai==1.82.0
-anthropic==0.49.0
+openai
+anthropic
 networkx==3.4.2
 numpy==1.26.4
 scipy==1.15.3
