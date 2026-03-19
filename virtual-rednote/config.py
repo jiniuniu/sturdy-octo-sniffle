@@ -13,5 +13,9 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o"
 
+    # 登录认证（留空则不启用）
+    auth_username: str = ""
+    auth_password: str = ""
+
 
 settings = Settings()

@@ -1,9 +1,11 @@
 import asyncio
 import json
+import secrets
 import uuid
 
 import networkx as nx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sim.db import (
@@ -27,6 +29,33 @@ _worlds: dict[str, dict] = {}
 _simulations: dict[str, SimulationEngine] = {}
 
 app = FastAPI(title="Virtual RedNote")
+
+
+# 全局认证
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    from config import settings
+
+    if not settings.auth_username:
+        return await call_next(request)
+    import base64
+
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth[6:]).decode()
+            username, _, password = decoded.partition(":")
+            if secrets.compare_digest(
+                username, settings.auth_username
+            ) and secrets.compare_digest(password, settings.auth_password):
+                return await call_next(request)
+        except Exception:
+            pass
+    return Response(
+        content="Unauthorized",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="Virtual RedNote"'},
+    )
 
 
 @app.on_event("startup")
