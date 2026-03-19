@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Virtual RedNote</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="topbar">
+  <h1>Virtual RedNote</h1>
+  <span id="sim-day" style="display:none">Day 0.00</span>
+  <span id="sim-status" style="display:none"></span>
+  <span id="topbar-community"></span>
+  <button id="btn-back" onclick="goStep(1)" style="display:none;background:transparent;color:#888;border:1px solid #333;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer">← 返回</button>
+  <button id="btn-stop" onclick="stopSim()">停止</button>
+  <button id="btn-start" onclick="launchSim()" style="display:none">开始模拟</button>
+  <button id="btn-save"  onclick="saveSim()"  style="display:none;background:transparent;color:#4caf50;border:1px solid #4caf50;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer">保存模拟</button>
+</div>
+
+<div id="wizard">
+
+  <!-- Step 0：选择世界 -->
+  <div id="step0" class="wizard-card">
+    <h2>选择社区</h2>
+    <p>选择一个已有社区开始模拟。</p>
+    <div id="world-list" class="world-list">
+      <div class="world-empty">加载中...</div>
+    </div>
+  </div>
+
+  <!-- Step 1：世界详情 -->
+  <div id="step1" class="wizard-card" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="goStep(0)">←</button>
+      <div>
+        <div id="detail-name" style="font-size:16px;font-weight:600;color:#fff"></div>
+        <div id="detail-dims" style="font-size:11px;color:#555;margin-top:2px"></div>
+      </div>
+    </div>
+
+    <div id="sim-history">
+      <div style="font-size:11px;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px">历史模拟</div>
+      <div id="sim-history-list"></div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn-primary" onclick="goStep(2)">+ 新建模拟</button>
+    </div>
+  </div>
+
+  <!-- Step 2：发布内容 -->
+  <div id="step2" class="wizard-card" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+      <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="goStep(1)">←</button>
+      <span style="font-size:13px;color:#888">输入品牌内容，AI 分析后开始模拟</span>
+    </div>
+    <textarea id="content-text" rows="6" placeholder="例：全新植物精华精华液，100%天然成分提取，无香精无防腐剂，敏感肌也能放心用 🌿"></textarea>
+    <div id="step2-status" class="status-line" style="display:none"></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn-primary" id="btn-analyze" onclick="analyzeContent()">开始模拟 →</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="main" style="display:none">
+  <!-- 传播图 -->
+  <div id="panel-graph">
+    <h2>传播图</h2>
+    <div id="graph-legend">
+      <span class="legend-item"><svg width="12" height="12"><circle cx="6" cy="6" r="6" fill="#ff2d55"/></svg> 品牌</span>
+      <span class="legend-item"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#ff9500"/></svg> KOL</span>
+      <span class="legend-item"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#5ac8fa"/></svg> KOC</span>
+      <span class="legend-item"><svg width="12" height="12"><circle cx="6" cy="6" r="2" fill="#aaa"/></svg> 普通用户</span>
+      <span class="legend-sep"></span>
+      <span class="legend-item"><svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#ff9500" stroke-width="3"/></svg> 转发</span>
+      <span class="legend-item"><svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#5ac8fa" stroke-width="3"/></svg> 评论</span>
+      <span class="legend-item"><svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#ff2d55" stroke-width="3"/></svg> 点赞</span>
+    </div>
+    <svg id="graph-svg"></svg>
+  </div>
+
+  <!-- 帖子详情 -->
+  <div id="panel-feed">
+    <h2>帖子详情</h2>
+    <div id="seed-post">
+      <div class="label">📌 品牌原帖</div>
+      <div class="text" id="seed-text"></div>
+      <div class="stats" id="seed-stats"></div>
+    </div>
+    <div id="comment-section">
+      <div id="comment-header">💬 评论</div>
+      <div id="feed-list">
+        <div style="color:#444;font-size:12px;padding:16px;text-align:center">模拟开始后更新</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 指标 + 日志 -->
+  <div id="panel-right">
+    <div id="panel-metrics">
+      <h2>实时指标</h2>
+      <div id="metrics-grid">
+        <div class="metric-item"><div class="metric-label">触达人数</div><div class="metric-value" id="m-reach">0</div></div>
+        <div class="metric-item"><div class="metric-label">转发率</div><div class="metric-value" id="m-repost-rate">0%</div></div>
+        <div class="metric-item"><div class="metric-label">评论率</div><div class="metric-value" id="m-comment-rate">0%</div></div>
+        <div class="metric-item"><div class="metric-label">转发数</div><div class="metric-value" id="m-reposts">0</div></div>
+      </div>
+      <div id="chart-wrap"><canvas id="reach-chart"></canvas></div>
+    </div>
+    <div id="panel-log">
+      <h2>事件日志</h2>
+      <div id="log-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="agent-tooltip"></div>
+<script src="app.js"></script>
+</body>
+</html>

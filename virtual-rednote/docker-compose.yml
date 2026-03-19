@@ -1,0 +1,16 @@
+services:
+  virtual-rednote:
+    image: virtual-rednote:latest
+    container_name: virtual-rednote
+    restart: unless-stopped
+    ports:
+      - "6789:6789"
+    env_file:
+      - .env
+    networks:
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: dbs_backend
