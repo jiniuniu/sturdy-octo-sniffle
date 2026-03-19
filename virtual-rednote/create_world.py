@@ -11,18 +11,17 @@
     3. LLM 批量生成每个 agent 的 persona（分批并发）
     4. 持久化到 MongoDB（worlds / agents / social_graphs）
 """
-import asyncio
+
 import argparse
+import asyncio
+import uuid
 
 import networkx as nx
-
 from config import settings
-from llm.world_gen import generate_dimensions
 from llm.persona import generate_personas
+from llm.world_gen import generate_dimensions
+from sim.db import init_db, save_agents, save_graph, save_world
 from sim.world import generate_agents, generate_social_graph
-from sim.db import save_world, save_agents, save_graph, init_db
-
-import uuid
 
 
 async def create_world(description: str, n_agents: int, seed: int, batch_size: int):
@@ -33,7 +32,9 @@ async def create_world(description: str, n_agents: int, seed: int, batch_size: i
 
     # Step 1: 生成维度
     print("Step 1/4  生成维度...")
-    community_name, dimensions, demographic_dimensions, brand_agent = await generate_dimensions(description)
+    community_name, dimensions, demographic_dimensions, brand_agent = (
+        await generate_dimensions(description)
+    )
     print(f"  社区名称：{community_name}")
     print(f"  品牌：{brand_agent.brand_name}（{brand_agent.tone_of_voice}）")
     print("  数值维度：")
@@ -49,9 +50,11 @@ async def create_world(description: str, n_agents: int, seed: int, batch_size: i
     agents = generate_agents(world_id, dimensions, n_total=n_agents, seed=seed)
     graph: nx.DiGraph = generate_social_graph(agents, seed=seed)
     edges = list(graph.edges())
-    print(f"  agents: {len(agents)}（KOL={sum(1 for a in agents if a.tier.value=='kol')}，"
-          f"KOC={sum(1 for a in agents if a.tier.value=='koc')}，"
-          f"Normal={sum(1 for a in agents if a.tier.value=='normal')}）")
+    print(
+        f"  agents: {len(agents)}（KOL={sum(1 for a in agents if a.tier.value=='kol')}，"
+        f"KOC={sum(1 for a in agents if a.tier.value=='koc')}，"
+        f"Normal={sum(1 for a in agents if a.tier.value=='normal')}）"
+    )
     print(f"  edges:  {len(edges)}")
 
     # Step 3: 批量生成 persona
@@ -62,7 +65,14 @@ async def create_world(description: str, n_agents: int, seed: int, batch_size: i
 
     # Step 4: 持久化
     print("\nStep 4/4  持久化到 MongoDB...")
-    await save_world(world_id, community_name, description, dimensions, demographic_dimensions, brand_agent)
+    await save_world(
+        world_id,
+        community_name,
+        description,
+        dimensions,
+        demographic_dimensions,
+        brand_agent,
+    )
     await save_agents(agents)
     await save_graph(world_id, edges)
     print(f"  world_id: {world_id}")
@@ -81,18 +91,24 @@ async def create_world(description: str, n_agents: int, seed: int, batch_size: i
 
 def main():
     parser = argparse.ArgumentParser(description="创建虚拟社区世界")
-    parser.add_argument("--desc",        required=True, help="产品/场景/目标人群描述")
-    parser.add_argument("--n-agents",    type=int, default=100, help="agent 数量（默认100）")
-    parser.add_argument("--seed",        type=int, default=42,  help="随机种子（默认42）")
-    parser.add_argument("--batch-size",  type=int, default=10,  help="persona 生成并发批次大小（默认10）")
+    parser.add_argument("--desc", required=True, help="产品/场景/目标人群描述")
+    parser.add_argument(
+        "--n-agents", type=int, default=100, help="agent 数量（默认100）"
+    )
+    parser.add_argument("--seed", type=int, default=42, help="随机种子（默认42）")
+    parser.add_argument(
+        "--batch-size", type=int, default=10, help="persona 生成并发批次大小（默认10）"
+    )
     args = parser.parse_args()
 
-    asyncio.run(create_world(
-        description=args.desc,
-        n_agents=args.n_agents,
-        seed=args.seed,
-        batch_size=args.batch_size,
-    ))
+    asyncio.run(
+        create_world(
+            description=args.desc,
+            n_agents=args.n_agents,
+            seed=args.seed,
+            batch_size=args.batch_size,
+        )
+    )
 
 
 if __name__ == "__main__":

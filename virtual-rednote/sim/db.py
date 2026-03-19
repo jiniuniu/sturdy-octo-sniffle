@@ -2,11 +2,13 @@
 MongoDB 读写封装（motor 异步驱动）
 持久化：worlds（维度定义）、agents（含 persona）、social_graph（边列表）
 """
-from datetime import datetime, timezone
-from motor.motor_asyncio import AsyncIOMotorClient
-from config import settings
-from .models import Dimension, DemographicDimension, BrandAgent, Agent, AgentTier
 
+from datetime import datetime, timezone
+
+from config import settings
+from motor.motor_asyncio import AsyncIOMotorClient
+
+from .models import Agent, AgentTier, BrandAgent, DemographicDimension, Dimension
 
 _client: AsyncIOMotorClient = None
 
@@ -27,18 +29,25 @@ async def init_db():
 
 # ── simulations ───────────────────────────────────────
 
+
 async def save_simulation(doc: dict):
     await get_db().simulations.replace_one({"_id": doc["_id"]}, doc, upsert=True)
 
 
 async def list_simulations(world_id: str) -> list[dict]:
-    return await get_db().simulations.find(
-        {"world_id": world_id},
-        {"event_log": 0},   # 列表页不返回事件流，太大
-    ).sort("created_at", -1).to_list(length=None)
+    return (
+        await get_db()
+        .simulations.find(
+            {"world_id": world_id},
+            {"event_log": 0},  # 列表页不返回事件流，太大
+        )
+        .sort("created_at", -1)
+        .to_list(length=None)
+    )
 
 
 # ── worlds ────────────────────────────────────────────
+
 
 async def save_world(
     world_id: str,
@@ -65,13 +74,12 @@ async def save_world(
                 for d in dimensions
             ],
             "demographic_dimensions": [
-                {"name": d.name, "labels": d.labels}
-                for d in demographic_dimensions
+                {"name": d.name, "labels": d.labels} for d in demographic_dimensions
             ],
             "brand_agent": {
-                "brand_name":    brand_agent.brand_name,
+                "brand_name": brand_agent.brand_name,
                 "tone_of_voice": brand_agent.tone_of_voice,
-                "reply_style":   brand_agent.reply_style,
+                "reply_style": brand_agent.reply_style,
             },
         },
         upsert=True,
@@ -105,6 +113,7 @@ async def delete_world(world_id: str):
 
 
 # ── agents ────────────────────────────────────────────
+
 
 async def save_agents(agents: list[Agent]):
     if not agents:
@@ -145,6 +154,7 @@ async def load_agents(world_id: str) -> list[Agent]:
 
 
 # ── social graph ──────────────────────────────────────
+
 
 async def save_graph(world_id: str, edges: list[tuple[str, str]]):
     await get_db().social_graphs.replace_one(

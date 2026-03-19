@@ -13,6 +13,7 @@
 ### 2.1 世界（World）
 
 模拟的基础环境，包含：
+
 - 一批预设的 AI Agent（虚拟用户）
 - Agent 之间的社交关系图
 - 算法推送机制
@@ -63,30 +64,32 @@ content.type      # original / repost / comment
 
 系统中所有行为都抽象为事件，驱动模拟推进：
 
-| 事件类型 | 触发条件 | 产生结果 |
-|---------|---------|---------|
-| `content_published` | 品牌发帖 / agent转发 | 推送曝光给相关agent |
-| `content_exposed` | 算法推送 | agent决策 |
-| `agent_reacted` | agent决策非沉默 | 可能产生新的`content_published` |
+| 事件类型            | 触发条件             | 产生结果                        |
+| ------------------- | -------------------- | ------------------------------- |
+| `content_published` | 品牌发帖 / agent转发 | 推送曝光给相关agent             |
+| `content_exposed`   | 算法推送             | agent决策                       |
+| `agent_reacted`     | agent决策非沉默      | 可能产生新的`content_published` |
 
 ---
 
 ## 3. 数据模型
 
 ### worlds
+
 ```json
 {
   "_id": "world_001",
   "name": "美妆社区",
   "dimensions": [
-    {"name": "成分敏感度", "description": "..."},
-    {"name": "价格敏感度", "description": "..."}
+    { "name": "成分敏感度", "description": "..." },
+    { "name": "价格敏感度", "description": "..." }
   ],
   "created_at": "..."
 }
 ```
 
 ### agents
+
 ```json
 {
   "_id": "agent_001",
@@ -103,9 +106,11 @@ content.type      # original / repost / comment
 ```
 
 ### social_graph
+
 存储在内存（networkx DiGraph），节点为 agent_id，边带权重（关系强度）。持久化为 agents.following/followers。
 
 ### simulations
+
 ```json
 {
   "_id": "sim_001",
@@ -125,6 +130,7 @@ content.type      # original / repost / comment
 ```
 
 ### posts
+
 ```json
 {
   "_id": "post_001",
@@ -135,11 +141,12 @@ content.type      # original / repost / comment
   "vector": [0.95, 0.4, 0.65, 0.3, 0.9],
   "text": "全新天然成分精华上市...",
   "sim_time": 0.0,
-  "metrics": {"likes": 12, "comments": 3, "reposts": 2}
+  "metrics": { "likes": 12, "comments": 3, "reposts": 2 }
 }
 ```
 
 ### events
+
 ```json
 {
   "_id": "evt_001",
@@ -276,38 +283,41 @@ repost.vector = parent.vector + ε
 ```
 
 **热门内容流排序逻辑：**
+
 ```
 score = likes + comments * 2 + reposts * 3
 ```
+
 取 Top N，每隔若干事件刷新一次（不需要每个事件都重排）。
 
 **SSE 事件类型：**
 
-| type | 前端行为 |
-|------|---------|
-| `agent_reacted` | 日志追加 + 传播图新增边 |
-| `metrics_update` | 指标区更新数值 |
-| `feed_update` | 热门内容流刷新 Top N 列表 |
-| `simulation_done` | 停止，展示汇总 |
+| type              | 前端行为                  |
+| ----------------- | ------------------------- |
+| `agent_reacted`   | 日志追加 + 传播图新增边   |
+| `metrics_update`  | 指标区更新数值            |
+| `feed_update`     | 热门内容流刷新 Top N 列表 |
+| `simulation_done` | 停止，展示汇总            |
 
 ---
 
 ## 6. 技术栈
 
-| 层 | 技术 |
-|----|------|
-| 模拟引擎 | Python asyncio + heapq |
-| 社交图 | networkx（内存） |
-| 数据库 | MongoDB + motor（异步驱动） |
-| API | FastAPI + sse-starlette |
-| 前端 | 单文件 HTML + D3.js + Chart.js |
-| LLM（后期） | Anthropic Claude API |
+| 层          | 技术                           |
+| ----------- | ------------------------------ |
+| 模拟引擎    | Python asyncio + heapq         |
+| 社交图      | networkx（内存）               |
+| 数据库      | MongoDB + motor（异步驱动）    |
+| API         | FastAPI + sse-starlette        |
+| 前端        | 单文件 HTML + D3.js + Chart.js |
+| LLM（后期） | Anthropic Claude API           |
 
 ---
 
 ## 7. 开发阶段规划
 
 ### Phase 1：规则引擎 MVP
+
 - [ ] 世界生成（维度 + agents + 社交图）
 - [ ] 事件循环核心
 - [ ] 规则引擎决策（纯向量计算）
@@ -316,11 +326,13 @@ score = likes + comments * 2 + reposts * 3
 - [ ] 前端三区域展示
 
 ### Phase 2：LLM 增强
+
 - [ ] 品牌内容 → 维度向量（LLM分析）
 - [ ] 关键节点生成真实评论文本
 - [ ] 世界生成时 LLM 推导维度
 
 ### Phase 3：产品化
+
 - [ ] 多世界管理
 - [ ] 模拟对比（同内容，不同世界参数）
 - [ ] 报告导出

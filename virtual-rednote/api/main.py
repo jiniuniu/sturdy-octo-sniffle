@@ -1,16 +1,25 @@
-import uuid
 import asyncio
 import json
+import uuid
 
 import networkx as nx
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
-
+from sim.db import (
+    delete_world,
+    get_world,
+    init_db,
+    list_simulations,
+    list_worlds,
+    load_agents,
+    load_brand_agent,
+    load_graph,
+    save_simulation,
+)
+from sim.engine import SimulationConfig, SimulationEngine
 from sim.models import Content, ContentType, Dimension
-from sim.engine import SimulationEngine, SimulationConfig
-from sim.db import get_world, list_worlds, delete_world, load_agents, load_graph, load_brand_agent, init_db, save_simulation, list_simulations
+from sse_starlette.sse import EventSourceResponse
 
 # world_id -> {agents_dict, graph, dimensions, community_name}
 _worlds: dict[str, dict] = {}
@@ -26,6 +35,7 @@ async def startup():
 
 
 # ── 请求/响应模型 ────────────────────────────────────────
+
 
 class AnalyzeContentRequest(BaseModel):
     world_id: str
@@ -51,6 +61,7 @@ class SimulateResponse(BaseModel):
 
 # ── API ──────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -59,15 +70,17 @@ async def health():
 @app.get("/worlds")
 async def get_worlds():
     worlds = await list_worlds()
-    return {"worlds": [
-        {
-            "world_id": w["_id"],
-            "community_name": w["community_name"],
-            "created_at": w.get("created_at", ""),
-            "dimensions": w["dimensions"],
-        }
-        for w in worlds
-    ]}
+    return {
+        "worlds": [
+            {
+                "world_id": w["_id"],
+                "community_name": w["community_name"],
+                "created_at": w.get("created_at", ""),
+                "dimensions": w["dimensions"],
+            }
+            for w in worlds
+        ]
+    }
 
 
 @app.post("/worlds/{world_id}/load")
@@ -83,7 +96,9 @@ async def load_world(world_id: str):
     ]
     agents = await load_agents(world_id)
     if not agents:
-        raise HTTPException(404, f"world {world_id} has no agents, please run create_world.py first")
+        raise HTTPException(
+            404, f"world {world_id} has no agents, please run create_world.py first"
+        )
 
     edges = await load_graph(world_id)
     graph = nx.DiGraph()
@@ -144,7 +159,10 @@ async def analyze_content(req: AnalyzeContentRequest):
 async def simulate_start(req: SimulateRequest):
     world = _worlds.get(req.world_id)
     if world is None:
-        raise HTTPException(404, f"world {req.world_id} not loaded, call /worlds/{req.world_id}/load first")
+        raise HTTPException(
+            404,
+            f"world {req.world_id} not loaded, call /worlds/{req.world_id}/load first",
+        )
 
     sim_id = f"sim_{uuid.uuid4().hex[:10]}"
     seed_content = Content(
@@ -169,30 +187,34 @@ async def simulate_start(req: SimulateRequest):
     )
     _simulations[sim_id] = engine
 
-    return SimulateResponse(sim_id=sim_id, world_id=req.world_id, seed_content_id=seed_content.id)
+    return SimulateResponse(
+        sim_id=sim_id, world_id=req.world_id, seed_content_id=seed_content.id
+    )
 
 
 @app.get("/worlds/{world_id}/simulations")
 async def get_simulations(world_id: str):
     sims = await list_simulations(world_id)
-    return {"simulations": [
-        {
-            "sim_id":       s["_id"],
-            "content_text": s.get("content_text", ""),
-            "created_at":   s.get("created_at", ""),
-            "metrics":      s.get("metrics", {}),
-            "total_events": s.get("total_events", 0),
-        }
-        for s in sims
-    ]}
+    return {
+        "simulations": [
+            {
+                "sim_id": s["_id"],
+                "content_text": s.get("content_text", ""),
+                "created_at": s.get("created_at", ""),
+                "metrics": s.get("metrics", {}),
+                "total_events": s.get("total_events", 0),
+            }
+            for s in sims
+        ]
+    }
 
 
 class SaveSimRequest(BaseModel):
-    content_text:  str
-    metrics:       dict
-    total_events:  int
-    event_log:     list[dict] = []
-    comments:      list[dict] = []
+    content_text: str
+    metrics: dict
+    total_events: int
+    event_log: list[dict] = []
+    comments: list[dict] = []
     brand_replies: list[dict] = []
 
 
@@ -202,23 +224,28 @@ async def save_sim(sim_id: str, req: SaveSimRequest):
     world_id = engine.world_id if engine else None
     if world_id is None:
         raise HTTPException(404, f"simulation {sim_id} not found")
-    await save_simulation({
-        "_id":           sim_id,
-        "world_id":      world_id,
-        "content_text":  req.content_text,
-        "created_at":    __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
-        "metrics":       req.metrics,
-        "total_events":  req.total_events,
-        "event_log":     req.event_log,
-        "comments":      req.comments,
-        "brand_replies": req.brand_replies,
-    })
+    await save_simulation(
+        {
+            "_id": sim_id,
+            "world_id": world_id,
+            "content_text": req.content_text,
+            "created_at": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
+            "metrics": req.metrics,
+            "total_events": req.total_events,
+            "event_log": req.event_log,
+            "comments": req.comments,
+            "brand_replies": req.brand_replies,
+        }
+    )
     return {"ok": True}
 
 
 @app.get("/simulate/{sim_id}")
 async def get_simulation(sim_id: str):
     from sim.db import get_db
+
     doc = await get_db().simulations.find_one({"_id": sim_id})
     if doc is None:
         raise HTTPException(404, f"simulation {sim_id} not found")
@@ -228,10 +255,15 @@ async def get_simulation(sim_id: str):
     world_id = doc.get("world_id")
     if world_id and not doc.get("graph_init"):
         agents = await load_agents(world_id)
-        edges  = await load_graph(world_id)
-        nodes  = [{"id": a.id, "tier": a.tier.value, "persona": a.persona} for a in agents]
+        edges = await load_graph(world_id)
+        nodes = [
+            {"id": a.id, "tier": a.tier.value, "persona": a.persona} for a in agents
+        ]
         nodes.append({"id": "brand_001", "tier": "brand", "persona": ""})
-        doc["graph_init"] = {"nodes": nodes, "edges": [{"source": s, "target": t} for s, t in edges]}
+        doc["graph_init"] = {
+            "nodes": nodes,
+            "edges": [{"source": s, "target": t} for s, t in edges],
+        }
 
     return doc
 
@@ -239,6 +271,7 @@ async def get_simulation(sim_id: str):
 @app.delete("/simulate/{sim_id}")
 async def delete_simulation(sim_id: str):
     from sim.db import get_db
+
     await get_db().simulations.delete_one({"_id": sim_id})
     _simulations.pop(sim_id, None)
     return {"ok": True}

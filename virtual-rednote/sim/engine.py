@@ -1,25 +1,36 @@
 """
 事件驱动仿真引擎
 """
-import heapq
-import uuid
-import math
+
 import asyncio
-import numpy as np
+import heapq
+import math
+import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
 
-from .models import Event, EventType, ActionType, Content, ContentType, Agent, AgentTier, BrandAgent
-from .rules import compute_action, cosine_similarity
-from llm.comment import generate_comment
+import numpy as np
 from llm.brand import brand_review_comments
+from llm.comment import generate_comment
+
+from .models import (
+    ActionType,
+    Agent,
+    AgentTier,
+    BrandAgent,
+    Content,
+    ContentType,
+    Event,
+    EventType,
+)
+from .rules import compute_action, cosine_similarity
 
 
 @dataclass
 class SimulationConfig:
     time_window_days: float = 7.0
     max_events: int = 10000
-    brand_check_interval: int = 30   # 每 N 个仿真事件触发一次品牌巡查
+    brand_check_interval: int = 30  # 每 N 个仿真事件触发一次品牌巡查
 
 
 class EventQueue:
@@ -42,7 +53,7 @@ class SimulationEngine:
         sim_id: str,
         world_id: str,
         agents: dict[str, Agent],
-        graph,                        # networkx DiGraph
+        graph,  # networkx DiGraph
         seed_content: Content,
         config: SimulationConfig | None = None,
         brand_agent: BrandAgent | None = None,
@@ -123,17 +134,25 @@ class SimulationEngine:
         self._reposted_by[self.seed_content.id] = set()
 
         brand_id = self.seed_content.author_id
-        followers = list(self.graph.predecessors(brand_id)) if brand_id in self.graph else []
+        followers = (
+            list(self.graph.predecessors(brand_id)) if brand_id in self.graph else []
+        )
         if not followers:
-            followers = [a_id for a_id, a in self.agents.items() if a.tier in (AgentTier.KOL, AgentTier.KOC)]
+            followers = [
+                a_id
+                for a_id, a in self.agents.items()
+                if a.tier in (AgentTier.KOL, AgentTier.KOC)
+            ]
 
         for agent_id in followers:
             self._exposed[self.seed_content.id].add(agent_id)
-            self.queue.push(Event(
-                sim_time=0.0,
-                type=EventType.CONTENT_EXPOSED,
-                payload={"agent_id": agent_id, "content_id": self.seed_content.id},
-            ))
+            self.queue.push(
+                Event(
+                    sim_time=0.0,
+                    type=EventType.CONTENT_EXPOSED,
+                    payload={"agent_id": agent_id, "content_id": self.seed_content.id},
+                )
+            )
 
     # ── 主循环 ────────────────────────────────────────────
 
@@ -155,8 +174,11 @@ class SimulationEngine:
 
             # 每 brand_check_interval 个事件触发一次品牌巡查
             interval = self.config.brand_check_interval
-            if (self.brand_agent and self._new_comments_buf and
-                    self.event_count - self._last_brand_check >= interval):
+            if (
+                self.brand_agent
+                and self._new_comments_buf
+                and self.event_count - self._last_brand_check >= interval
+            ):
                 self._last_brand_check = self.event_count
                 pending, self._new_comments_buf = self._new_comments_buf, []
                 self._pending_brand += 1
@@ -167,10 +189,10 @@ class SimulationEngine:
     # ── 处理曝光 ──────────────────────────────────────────
 
     def _handle_exposed(self, event: Event) -> dict | None:
-        agent_id   = event.payload["agent_id"]
+        agent_id = event.payload["agent_id"]
         content_id = event.payload["content_id"]
 
-        agent   = self.agents.get(agent_id)
+        agent = self.agents.get(agent_id)
         content = self._cache.get(content_id)
         if agent is None or content is None:
             return None
@@ -196,30 +218,40 @@ class SimulationEngine:
             # 品牌巡查缓冲条目（text 初始为空，_gen_comment 完成后会填充）
             brand_buf_entry = None
             if self.brand_agent and agent_id not in self._replied_to:
-                brand_buf_entry = {"agent_id": agent_id, "tier": agent.tier.value, "text": ""}
+                brand_buf_entry = {
+                    "agent_id": agent_id,
+                    "tier": agent.tier.value,
+                    "text": "",
+                }
                 self._new_comments_buf.append(brand_buf_entry)
             if agent.persona:
                 self._pending_comments += 1
-                asyncio.create_task(self._gen_comment(agent, content, event.sim_time, brand_buf_entry))
+                asyncio.create_task(
+                    self._gen_comment(agent, content, event.sim_time, brand_buf_entry)
+                )
 
         elif action == ActionType.REPOST:
             self.metrics["reposts"] += 1
             content.reposts += 1
             self._reposted_by.setdefault(content_id, set()).add(agent_id)
-            derived = self._make_derived(agent, content, ContentType.REPOST, event.sim_time)
-            self.queue.push(Event(
-                sim_time=event.sim_time,
-                type=EventType.CONTENT_PUBLISHED,
-                payload={"content_id": derived.id, "viral_boost": 1.0},
-            ))
+            derived = self._make_derived(
+                agent, content, ContentType.REPOST, event.sim_time
+            )
+            self.queue.push(
+                Event(
+                    sim_time=event.sim_time,
+                    type=EventType.CONTENT_PUBLISHED,
+                    payload={"content_id": derived.id, "viral_boost": 1.0},
+                )
+            )
             # KOL 转发立即触发一次小范围病毒扩散
             if agent.tier == AgentTier.KOL:
                 self._kol_viral_push(derived, event.sim_time)
 
-        seed    = self.seed_content
+        seed = self.seed_content
         new_cid = derived.id if action == ActionType.REPOST else None
         # 找到内容的原始作者，用于高亮传播路径上的边
-        source_id   = content.author_id
+        source_id = content.author_id
         return {
             "type": "agent_reacted",
             "sim_time": event.sim_time,
@@ -230,31 +262,39 @@ class SimulationEngine:
             "new_content_id": new_cid,
             "highlight_edge": {"source": source_id, "target": agent_id},
             "metrics": dict(self.metrics),
-            "seed_stats": {"likes": self.metrics["likes"], "comments": self.metrics["comments"], "reposts": self.metrics["reposts"]},
+            "seed_stats": {
+                "likes": self.metrics["likes"],
+                "comments": self.metrics["comments"],
+                "reposts": self.metrics["reposts"],
+            },
         }
 
     # ── 处理发布（传播扩散）─────────────────────────────────
 
     def _handle_published(self, event: Event):
-        content_id  = event.payload["content_id"]
+        content_id = event.payload["content_id"]
         viral_boost = event.payload.get("viral_boost", 1.0)
         content = self._cache.get(content_id)
         if content is None:
             return
 
         author_id = content.author_id
-        followers = list(self.graph.predecessors(author_id)) if author_id in self.graph else []
+        followers = (
+            list(self.graph.predecessors(author_id)) if author_id in self.graph else []
+        )
         exposed_set = self._exposed.setdefault(content_id, set())
         new_time = content.sim_time + self._time_delta(len(followers))
 
         for agent_id in followers:
             if agent_id not in exposed_set:
                 exposed_set.add(agent_id)
-                self.queue.push(Event(
-                    sim_time=new_time,
-                    type=EventType.CONTENT_EXPOSED,
-                    payload={"agent_id": agent_id, "content_id": content_id},
-                ))
+                self.queue.push(
+                    Event(
+                        sim_time=new_time,
+                        type=EventType.CONTENT_EXPOSED,
+                        payload={"agent_id": agent_id, "content_id": content_id},
+                    )
+                )
 
         # 出圈扩散：repost 数 >= 3 且 viral_boost >= 1.0
         repost_count = len(self._reposted_by.get(content_id, set()))
@@ -263,18 +303,26 @@ class SimulationEngine:
 
     # ── LLM 评论生成 ──────────────────────────────────────
 
-    async def _gen_comment(self, agent: Agent, content: Content, sim_time: float, brand_entry: dict | None = None):
+    async def _gen_comment(
+        self,
+        agent: Agent,
+        content: Content,
+        sim_time: float,
+        brand_entry: dict | None = None,
+    ):
         try:
             text = await generate_comment(agent.persona, self.seed_content.text)
             if brand_entry is not None:
                 brand_entry["text"] = text
-            await self._comment_queue.put({
-                "type":       "comment_generated",
-                "sim_time":   sim_time,
-                "agent_id":   agent.id,
-                "agent_tier": agent.tier.value,
-                "text":       text,
-            })
+            await self._comment_queue.put(
+                {
+                    "type": "comment_generated",
+                    "sim_time": sim_time,
+                    "agent_id": agent.id,
+                    "agent_tier": agent.tier.value,
+                    "text": text,
+                }
+            )
         except Exception:
             pass  # LLM 失败静默跳过，不影响仿真
         finally:
@@ -287,7 +335,11 @@ class SimulationEngine:
         try:
             # 等待一小段时间，让 _gen_comment 任务有机会填充 brand_entry["text"]
             await asyncio.sleep(2.0)
-            candidates = [c for c in comments if c["agent_id"] not in self._replied_to and c.get("text")]
+            candidates = [
+                c
+                for c in comments
+                if c["agent_id"] not in self._replied_to and c.get("text")
+            ]
             if not candidates:
                 return
             replies = await brand_review_comments(
@@ -300,12 +352,14 @@ class SimulationEngine:
                 if agent_id in self._replied_to:
                     continue
                 self._replied_to.add(agent_id)
-                await self._brand_queue.put({
-                    "type":       "brand_reply",
-                    "sim_time":   sim_time,
-                    "agent_id":   agent_id,
-                    "reply":      r["reply"],
-                })
+                await self._brand_queue.put(
+                    {
+                        "type": "brand_reply",
+                        "sim_time": sim_time,
+                        "agent_id": agent_id,
+                        "reply": r["reply"],
+                    }
+                )
         except Exception:
             pass
         finally:
@@ -318,7 +372,9 @@ class SimulationEngine:
         agent 关注列表中已转发此内容的加权比例。
         KOL 转发权重 = 3，其余 = 1。
         """
-        following = list(self.graph.successors(agent.id)) if agent.id in self.graph else []
+        following = (
+            list(self.graph.successors(agent.id)) if agent.id in self.graph else []
+        )
         if not following:
             return 0.0
         reposted = self._reposted_by.get(content_id, set())
@@ -334,7 +390,9 @@ class SimulationEngine:
         )
         return weighted_reposts / total_weight if total_weight > 0 else 0.0
 
-    def _make_derived(self, agent: Agent, parent: Content, ctype: ContentType, sim_time: float) -> Content:
+    def _make_derived(
+        self, agent: Agent, parent: Content, ctype: ContentType, sim_time: float
+    ) -> Content:
         noise = np.random.normal(0, 0.05, len(parent.vector))
         new_vector = list(np.clip(np.array(parent.vector) + noise, 0, 1))
         content = Content(
@@ -355,7 +413,9 @@ class SimulationEngine:
         candidates = [a for a_id, a in self.agents.items() if a_id not in exposed_set]
         if not candidates:
             return
-        scores = np.array([cosine_similarity(a.vector, content.vector) for a in candidates])
+        scores = np.array(
+            [cosine_similarity(a.vector, content.vector) for a in candidates]
+        )
         scores = np.clip(scores, 0, None)
         total = scores.sum()
         if total == 0:
@@ -368,19 +428,25 @@ class SimulationEngine:
         )
         for a in chosen:
             exposed_set.add(a.id)
-            self.queue.push(Event(
-                sim_time=sim_time + 0.1,
-                type=EventType.CONTENT_EXPOSED,
-                payload={"agent_id": a.id, "content_id": content.id},
-            ))
+            self.queue.push(
+                Event(
+                    sim_time=sim_time + 0.1,
+                    type=EventType.CONTENT_EXPOSED,
+                    payload={"agent_id": a.id, "content_id": content.id},
+                )
+            )
 
-    def _viral_spread(self, content: Content, exposed_set: set, repost_count: int, base_time: float):
+    def _viral_spread(
+        self, content: Content, exposed_set: set, repost_count: int, base_time: float
+    ):
         """repost 数超阈值后向相似 agent 出圈扩散"""
         n_extra = min(repost_count * 2, 20)
         candidates = [a for a_id, a in self.agents.items() if a_id not in exposed_set]
         if not candidates:
             return
-        scores = np.array([cosine_similarity(a.vector, content.vector) for a in candidates])
+        scores = np.array(
+            [cosine_similarity(a.vector, content.vector) for a in candidates]
+        )
         scores = np.clip(scores, 0, None)
         total = scores.sum()
         if total == 0:
@@ -393,11 +459,13 @@ class SimulationEngine:
         )
         for a in chosen:
             exposed_set.add(a.id)
-            self.queue.push(Event(
-                sim_time=base_time + self._time_delta(repost_count),
-                type=EventType.CONTENT_EXPOSED,
-                payload={"agent_id": a.id, "content_id": content.id},
-            ))
+            self.queue.push(
+                Event(
+                    sim_time=base_time + self._time_delta(repost_count),
+                    type=EventType.CONTENT_EXPOSED,
+                    payload={"agent_id": a.id, "content_id": content.id},
+                )
+            )
 
     @staticmethod
     def _time_delta(n_followers: int) -> float:
@@ -406,12 +474,12 @@ class SimulationEngine:
 
     def _graph_init_event(self) -> dict:
         """推送完整的节点列表和边列表，供前端初始化静态图"""
-        nodes = [{"id": a_id, "tier": a.tier.value, "persona": a.persona} for a_id, a in self.agents.items()]
-        nodes.append({"id": "brand_001", "tier": "brand", "persona": ""})
-        edges = [
-            {"source": u, "target": v}
-            for u, v in self.graph.edges()
+        nodes = [
+            {"id": a_id, "tier": a.tier.value, "persona": a.persona}
+            for a_id, a in self.agents.items()
         ]
+        nodes.append({"id": "brand_001", "tier": "brand", "persona": ""})
+        edges = [{"source": u, "target": v} for u, v in self.graph.edges()]
         return {"type": "graph_init", "nodes": nodes, "edges": edges}
 
     def _done_event(self) -> dict:
@@ -420,6 +488,6 @@ class SimulationEngine:
             "type": "simulation_done",
             "total_events": self.event_count,
             "metrics": dict(self.metrics),
-            "repost_rate":  round(self.metrics["reposts"]  / reach, 4),
+            "repost_rate": round(self.metrics["reposts"] / reach, 4),
             "comment_rate": round(self.metrics["comments"] / reach, 4),
         }

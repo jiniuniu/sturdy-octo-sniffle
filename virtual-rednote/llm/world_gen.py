@@ -3,37 +3,46 @@ LLM 推导社区维度
 输入：品牌/场景描述
 输出：社区名称 + 5~6 个数值维度 + 3~4 个人口统计维度（含标签池）
 """
-from pydantic import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
+
 from langchain.output_parsers import OutputFixingParser
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
+from sim.models import BrandAgent, DemographicDimension, Dimension
 
 from .client import get_llm
-from sim.models import Dimension, DemographicDimension, BrandAgent
 
 
 class DimensionItem(BaseModel):
-    name: str        = Field(description="维度名称，2~6个字，中文")
+    name: str = Field(description="维度名称，2~6个字，中文")
     description: str = Field(description="一句话描述该维度的含义")
-    low_label: str   = Field(description="低分端（0分）对应的用户特征，10~20字")
-    high_label: str  = Field(description="高分端（1分）对应的用户特征，10~20字")
+    low_label: str = Field(description="低分端（0分）对应的用户特征，10~20字")
+    high_label: str = Field(description="高分端（1分）对应的用户特征，10~20字")
 
 
 class DemographicItem(BaseModel):
-    name: str         = Field(description="人口统计维度名称，例如：职业类型、年龄段、城市线级")
-    labels: list[str] = Field(description="该维度的标签池，4~8个标签，覆盖该社区的典型用户群体")
+    name: str = Field(description="人口统计维度名称，例如：职业类型、年龄段、城市线级")
+    labels: list[str] = Field(
+        description="该维度的标签池，4~8个标签，覆盖该社区的典型用户群体"
+    )
 
 
 class BrandAgentItem(BaseModel):
-    brand_name:    str = Field(description="品牌名称，从描述中提取")
-    tone_of_voice: str = Field(description="品牌沟通风格，例如：专业温和、活泼亲切、高冷克制，20字以内")
-    reply_style:   str = Field(description="回复评论时的具体风格描述，30~50字，包含语气、侧重点等")
+    brand_name: str = Field(description="品牌名称，从描述中提取")
+    tone_of_voice: str = Field(
+        description="品牌沟通风格，例如：专业温和、活泼亲切、高冷克制，20字以内"
+    )
+    reply_style: str = Field(
+        description="回复评论时的具体风格描述，30~50字，包含语气、侧重点等"
+    )
 
 
 class WorldOutput(BaseModel):
-    community_name:         str                   = Field(description="社区名称，简短，例如：成分党护肤社区")
-    dimensions:             list[DimensionItem]   = Field(description="5~6个正交数值维度")
-    demographic_dimensions: list[DemographicItem] = Field(description="3~4个人口统计维度")
-    brand_agent:            BrandAgentItem        = Field(description="品牌运营人设")
+    community_name: str = Field(description="社区名称，简短，例如：成分党护肤社区")
+    dimensions: list[DimensionItem] = Field(description="5~6个正交数值维度")
+    demographic_dimensions: list[DemographicItem] = Field(
+        description="3~4个人口统计维度"
+    )
+    brand_agent: BrandAgentItem = Field(description="品牌运营人设")
 
 
 _PROMPT = """你是一个用户研究和社区分析专家。
@@ -60,16 +69,22 @@ _PROMPT = """你是一个用户研究和社区分析专家。
 """
 
 
-async def generate_dimensions(description: str) -> tuple[str, list[Dimension], list[DemographicDimension], BrandAgent]:
+async def generate_dimensions(
+    description: str,
+) -> tuple[str, list[Dimension], list[DemographicDimension], BrandAgent]:
     """返回 (community_name, dimensions, demographic_dimensions)"""
     parser = PydanticOutputParser(pydantic_object=WorldOutput)
-    fixing_parser = OutputFixingParser.from_llm(parser=parser, llm=get_llm(temperature=0))
+    fixing_parser = OutputFixingParser.from_llm(
+        parser=parser, llm=get_llm(temperature=0)
+    )
     llm = get_llm(temperature=0.7)
 
-    response = await llm.ainvoke(_PROMPT.format(
-        description=description,
-        format_instructions=parser.get_format_instructions(),
-    ))
+    response = await llm.ainvoke(
+        _PROMPT.format(
+            description=description,
+            format_instructions=parser.get_format_instructions(),
+        )
+    )
     try:
         result = parser.parse(response.content)
     except Exception:

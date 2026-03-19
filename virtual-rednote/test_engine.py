@@ -1,16 +1,33 @@
 import asyncio
 import uuid
-from sim.world import create_world
+
+from sim.engine import SimulationConfig, SimulationEngine
 from sim.models import Content, ContentType, Dimension
-from sim.engine import SimulationEngine, SimulationConfig
+from sim.world import create_world
 
 # 用固定维度做本地测试，无需 LLM
 dimensions = [
-    Dimension("成分敏感度", "对天然/无添加成分的关注程度", "不在乎成分，图效果就行", "成分党，每个原料都要研究"),
-    Dimension("价格敏感度", "对性价比的在意程度",         "价格不是问题",           "精打细算，只买高性价比"),
-    Dimension("颜值导向",   "外观在购买决策中的权重",     "功效优先，外观无所谓",   "颜值即正义，包装要好看"),
-    Dimension("KOL依赖度",  "是否跟随博主决策",           "自己研究，不跟风",       "博主推什么就买什么"),
-    Dimension("环保意识",   "对可持续/绿色理念的认同",    "环保不影响我买东西",     "优先选择环保品牌"),
+    Dimension(
+        "成分敏感度",
+        "对天然/无添加成分的关注程度",
+        "不在乎成分，图效果就行",
+        "成分党，每个原料都要研究",
+    ),
+    Dimension(
+        "价格敏感度", "对性价比的在意程度", "价格不是问题", "精打细算，只买高性价比"
+    ),
+    Dimension(
+        "颜值导向",
+        "外观在购买决策中的权重",
+        "功效优先，外观无所谓",
+        "颜值即正义，包装要好看",
+    ),
+    Dimension(
+        "KOL依赖度", "是否跟随博主决策", "自己研究，不跟风", "博主推什么就买什么"
+    ),
+    Dimension(
+        "环保意识", "对可持续/绿色理念的认同", "环保不影响我买东西", "优先选择环保品牌"
+    ),
 ]
 
 world_id, agents, graph = create_world(dimensions, n_agents=50, seed=42)
@@ -32,7 +49,9 @@ engine = SimulationEngine(
     agents=agents_dict,
     graph=graph,
     seed_content=seed,
-    config=SimulationConfig(time_window_days=3.0, max_events=200, feed_update_interval=50),
+    config=SimulationConfig(
+        time_window_days=3.0, max_events=200, feed_update_interval=50
+    ),
 )
 
 

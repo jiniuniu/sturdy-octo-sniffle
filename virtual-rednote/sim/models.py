@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 
 class AgentTier(str, Enum):
@@ -37,15 +37,15 @@ class Dimension:
 
 @dataclass
 class DemographicDimension:
-    name: str           # 例如 "城市线级"、"职业类型"、"年龄段"
-    labels: list[str]   # 例如 ["一线城市", "新一线城市", "二线城市"]
+    name: str  # 例如 "城市线级"、"职业类型"、"年龄段"
+    labels: list[str]  # 例如 ["一线城市", "新一线城市", "二线城市"]
 
 
 @dataclass
 class BrandAgent:
-    brand_name:    str
+    brand_name: str
     tone_of_voice: str  # 例如：专业温和、活泼亲切
-    reply_style:   str  # 回复评论时的具体风格描述
+    reply_style: str  # 回复评论时的具体风格描述
 
     def persona(self) -> str:
         return f"品牌：{self.brand_name}\n风格：{self.tone_of_voice}\n回复方式：{self.reply_style}"
@@ -56,11 +56,11 @@ class Agent:
     id: str
     world_id: str
     tier: AgentTier
-    vector: list[float]         # 在维度空间中的坐标 [0,1]^n
-    activity: float             # 活跃度，影响 p_like
-    expressiveness: float       # 表达欲，影响 p_comment
-    sharing: float              # 分享倾向，影响 p_repost
-    persona: str = ""           # LLM 生成的人物描述（后续用于 LLM 评论）
+    vector: list[float]  # 在维度空间中的坐标 [0,1]^n
+    activity: float  # 活跃度，影响 p_like
+    expressiveness: float  # 表达欲，影响 p_comment
+    sharing: float  # 分享倾向，影响 p_repost
+    persona: str = ""  # LLM 生成的人物描述（后续用于 LLM 评论）
     following: list[str] = field(default_factory=list)
     followers: list[str] = field(default_factory=list)
 

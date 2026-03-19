@@ -3,13 +3,14 @@ LLM 生成用户评论
 输入：agent persona + 原帖内容
 输出：一句话评论（符合人物特征）
 """
-from langchain_core.prompts import PromptTemplate
+
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
 
 from .client import get_llm
 
-
-_PROMPT = PromptTemplate.from_template("""你正在扮演一位社交平台用户，根据人物背景对品牌帖子发表评论。
+_PROMPT = PromptTemplate.from_template(
+    """你正在扮演一位社交平台用户，根据人物背景对品牌帖子发表评论。
 
 人物背景：
 {persona}
@@ -24,7 +25,8 @@ _PROMPT = PromptTemplate.from_template("""你正在扮演一位社交平台用�
 4. 不要使用"作为XXX"这类句式
 5. 只输出评论内容本身，不要加引号或任何前缀
 
-评论：""")
+评论："""
+)
 
 _chain = _PROMPT | get_llm(temperature=0.9) | StrOutputParser()
 

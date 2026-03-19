@@ -1,5 +1,5 @@
-from langchain_openai import ChatOpenAI
 from config import settings
+from langchain_openai import ChatOpenAI
 
 
 def get_llm(temperature: float = 0.7) -> ChatOpenAI:

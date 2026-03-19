@@ -2,18 +2,19 @@
 批量生成 agent persona
 从 DemographicDimension 标签池采样人口统计信息，连同数值向量一起喂给 LLM。
 """
+
 import random
-from pydantic import BaseModel, Field
+
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+from pydantic import BaseModel, Field
+from sim.models import Agent, AgentTier, DemographicDimension, Dimension
 
 from .client import get_llm
-from sim.models import Agent, AgentTier, Dimension, DemographicDimension
-
 
 TIER_LABEL = {
-    AgentTier.KOL:    "KOL（领域达人，高粉丝量，内容质量高，是社区意见领袖）",
-    AgentTier.KOC:    "KOC（活跃用户，爱分享真实体验，有一定圈内影响力）",
+    AgentTier.KOL: "KOL（领域达人，高粉丝量，内容质量高，是社区意见领袖）",
+    AgentTier.KOC: "KOC（活跃用户，爱分享真实体验，有一定圈内影响力）",
     AgentTier.NORMAL: "普通用户（偶尔浏览，较少主动发帖）",
 }
 
@@ -22,7 +23,8 @@ class PersonaOutput(BaseModel):
     persona: str = Field(description="人物描述，2~3句话，中文，不包含任何人名")
 
 
-_PROMPT = PromptTemplate.from_template("""你是一个用户研究专家，正在为虚拟社交社区创建用户画像。
+_PROMPT = PromptTemplate.from_template(
+    """你是一个用户研究专家，正在为虚拟社交社区创建用户画像。
 
 产品/场景背景：
 {product_desc}
@@ -43,7 +45,8 @@ _PROMPT = PromptTemplate.from_template("""你是一个用户研究专家，正�
 4. 不要出现任何人名
 
 {format_instructions}
-""")
+"""
+)
 
 
 def _sample_demographics(
@@ -93,11 +96,11 @@ async def generate_personas(
 
     inputs = [
         {
-            "product_desc":    product_desc,
+            "product_desc": product_desc,
             "dimensions_desc": dimensions_desc,
-            "tier_label":      TIER_LABEL[agent.tier],
-            "vector_desc":     _build_vector_desc(agent, dimensions),
-            "demographics":    _sample_demographics(demographic_dimensions, rng),
+            "tier_label": TIER_LABEL[agent.tier],
+            "vector_desc": _build_vector_desc(agent, dimensions),
+            "demographics": _sample_demographics(demographic_dimensions, rng),
             "format_instructions": parser.get_format_instructions(),
         }
         for agent in agents

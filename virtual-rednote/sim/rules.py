@@ -1,8 +1,10 @@
 """
 规则引擎：向量匹配 + 行为概率采样
 """
+
 import numpy as np
-from .models import Agent, AgentTier, Content, ActionType
+
+from .models import ActionType, Agent, AgentTier, Content
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -14,7 +16,9 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return float(np.dot(va, vb) / (na * nb))
 
 
-def compute_action(agent: Agent, content: Content, social_pressure: float) -> ActionType:
+def compute_action(
+    agent: Agent, content: Content, social_pressure: float
+) -> ActionType:
     """
     基于向量匹配度计算行为概率并采样。
 
@@ -27,9 +31,9 @@ def compute_action(agent: Agent, content: Content, social_pressure: float) -> Ac
     """
     match = cosine_similarity(agent.vector, content.vector)
 
-    p_like    = match * agent.activity       * 0.6
+    p_like = match * agent.activity * 0.6
     p_comment = match * agent.expressiveness * 0.3
-    p_repost  = match * agent.sharing        * (1.0 + social_pressure) * 0.2
+    p_repost = match * agent.sharing * (1.0 + social_pressure) * 0.2
 
     r = np.random.random()
     if r < p_repost:
